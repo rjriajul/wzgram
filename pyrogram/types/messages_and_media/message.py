@@ -6557,7 +6557,7 @@ class Message(Object, Update):
             width=width,
             height=height,
             video_start_timestamp=video_start_timestamp,
-            video_cover=video_cover,
+            cover=video_cover,
             thumb=thumb,
             supports_streaming=supports_streaming,
             disable_notification=disable_notification,
@@ -6782,7 +6782,7 @@ class Message(Object, Update):
             width=width,
             height=height,
             video_start_timestamp=video_start_timestamp,
-            video_cover=video_cover,
+            cover=video_cover,
             thumb=thumb,
             supports_streaming=supports_streaming,
             disable_notification=disable_notification,
@@ -8686,6 +8686,8 @@ class Message(Object, Update):
         caption: Optional[str] = None,
         parse_mode: Optional["enums.ParseMode"] = None,
         caption_entities: Optional[List["types.MessageEntity"]] = None,
+        video_cover: Optional[Union[str, BinaryIO]] = None,
+        video_start_timestamp: Optional[int] = None,
         disable_notification: Optional[bool] = None,
         message_thread_id: Optional[int] = None,
         reply_parameters: Optional["types.ReplyParameters"] = None,
@@ -8730,6 +8732,12 @@ class Message(Object, Update):
 
             caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
                 List of special entities that appear in the new caption, which can be specified instead of *parse_mode*.
+
+            video_cover (``str`` | ``BinaryIO``, *optional*):
+                New cover for the copied video in the message. Pass None to skip cover uploading and use the existing cover.
+
+            video_start_timestamp (``int``, *optional*):
+                New start timestamp, from which the video playing must start, in seconds for the copied video in the message.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
@@ -8832,7 +8840,31 @@ class Message(Object, Update):
             elif self.document:
                 file_id = self.document.file_id
             elif self.video:
-                file_id = self.video.file_id
+                if caption is None:
+                    caption = self.caption or ""
+                    caption_entities = self.caption_entities
+
+                return await self._client.send_video(
+                    chat_id,
+                    video=self.video.file_id,
+                    caption=caption,
+                    parse_mode=parse_mode,
+                    caption_entities=caption_entities,
+                    has_spoiler=self.has_media_spoiler if has_spoiler is None else has_spoiler,
+                    show_caption_above_media=self.show_caption_above_media if show_caption_above_media is None else show_caption_above_media,
+                    disable_notification=disable_notification,
+                    message_thread_id=self.message_thread_id if message_thread_id is None else message_thread_id,
+                    business_connection_id=self.business_connection_id if business_connection_id is None else business_connection_id,
+                    schedule_date=schedule_date,
+                    protect_content=self.has_protected_content if protect_content is None else protect_content,
+                    allow_paid_broadcast=allow_paid_broadcast,
+                    paid_message_star_count=paid_message_star_count,
+                    reply_parameters=reply_parameters,
+                    reply_markup=self.reply_markup if reply_markup is object else reply_markup,
+                    cover=video_cover if video_cover else self.video.video_cover.sizes[-1].file_id if self.video.video_cover else None,
+                    video_start_timestamp=video_start_timestamp if video_start_timestamp else self.video.video_start_timestamp,
+                    effect_id=self.effect_id
+                )
             elif self.animation:
                 file_id = self.animation.file_id
             elif self.voice:

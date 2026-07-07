@@ -18,7 +18,7 @@
 
 import logging
 from datetime import datetime
-from typing import Union, List, Optional
+from typing import Union, List, Optional, BinaryIO
 
 import pyrogram
 from pyrogram import types, enums
@@ -35,6 +35,8 @@ class CopyMessage:
         caption: str = None,
         parse_mode: Optional["enums.ParseMode"] = None,
         caption_entities: List["types.MessageEntity"] = None,
+        video_cover: Optional[Union[str, BinaryIO]] = None,
+        video_start_timestamp: int = None,
         disable_notification: bool = None,
         reply_to_message_id: int = None,
         schedule_date: datetime = None,
@@ -79,6 +81,12 @@ class CopyMessage:
             caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
                 List of special entities that appear in the new caption, which can be specified instead of *parse_mode*.
 
+            video_cover (``str`` | ``BinaryIO``, *optional*):
+                New cover for the copied video in the message. Pass None to skip cover uploading and use the existing cover.
+
+            video_start_timestamp (``int``, *optional*):
+                New start timestamp, from which the video playing must start, in seconds for the copied video in the message.
+
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
                 Users will receive a notification with no sound.
@@ -113,6 +121,8 @@ class CopyMessage:
             caption=caption,
             parse_mode=parse_mode,
             caption_entities=caption_entities,
+            video_cover=video_cover,
+            video_start_timestamp=video_start_timestamp,
             disable_notification=disable_notification,
             reply_to_message_id=reply_to_message_id,
             schedule_date=schedule_date,
