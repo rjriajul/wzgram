@@ -4760,7 +4760,6 @@ class Message(Object, Update):
         reply_parameters: Optional["types.ReplyParameters"] = None,
         schedule_date: Optional[datetime] = None,
         repeat_period: Optional[int] = None,
-        view_once: Optional[bool] = None,
         protect_content: Optional[bool] = None,
         allow_paid_broadcast: Optional[bool] = None,
         paid_message_star_count: Optional[int] = None,
@@ -4841,10 +4840,6 @@ class Message(Object, Update):
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
-
-            view_once (``bool``, *optional*):
-                Self-Destruct Timer.
-                If True, the photo will self-destruct after it was viewed.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -4932,7 +4927,6 @@ class Message(Object, Update):
             schedule_date=schedule_date,
             repeat_period=repeat_period,
             protect_content=protect_content,
-            view_once=view_once,
             business_connection_id=self.business_connection_id,
             allow_paid_broadcast=allow_paid_broadcast,
             paid_message_star_count=paid_message_star_count,
@@ -4962,7 +4956,6 @@ class Message(Object, Update):
         reply_parameters: Optional["types.ReplyParameters"] = None,
         schedule_date: Optional[datetime] = None,
         repeat_period: Optional[int] = None,
-        view_once: Optional[bool] = None,
         protect_content: Optional[bool] = None,
         allow_paid_broadcast: Optional[bool] = None,
         paid_message_star_count: Optional[int] = None,
@@ -5038,10 +5031,6 @@ class Message(Object, Update):
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
 
-            view_once (``bool``, *optional*):
-                Self-Destruct Timer.
-                If True, the photo will self-destruct after it was viewed.
-
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
 
@@ -5114,7 +5103,6 @@ class Message(Object, Update):
             schedule_date=schedule_date,
             repeat_period=repeat_period,
             protect_content=protect_content,
-            view_once=view_once,
             business_connection_id=self.business_connection_id,
             allow_paid_broadcast=allow_paid_broadcast,
             paid_message_star_count=paid_message_star_count,
