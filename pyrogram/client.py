@@ -1764,6 +1764,9 @@ class Cache:
     def __getitem__(self, key):
         return self.store.get(key, None)
 
+    def get(self, key, default=None):
+        return self.store.get(key, default)
+
     def __setitem__(self, key, value):
         if key in self.store:
             del self.store[key]
