@@ -26,6 +26,7 @@ from ..all import objects
 _legacy_objects: Dict[int, str] = {
     0xf2355507: "pyrogram.raw.types.ChannelFull",
     0xc9d31138: "pyrogram.raw.types.ChatFull",
+    0x31774388: "pyrogram.raw.types.User",
 }
 
 
