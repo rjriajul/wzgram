@@ -65,15 +65,14 @@ class TokenBucket:
         return (tokens - self._tokens) / max(self._rate, 0.0001)
 
     async def acquire(self, tokens: float = 1.0):
-        async with self._cond:
-            wait = self._wait_time(tokens)
-            while wait > 0:
-                try:
-                    await asyncio.wait_for(self._cond.wait(), timeout=wait)
-                except (asyncio.CancelledError, asyncio.TimeoutError, TimeoutError):
-                    pass
+        while True:
+            async with self._cond:
                 wait = self._wait_time(tokens)
-            self._try_consume(tokens)
+                if wait <= 0:
+                    self._try_consume(tokens)
+                    return
+            await asyncio.sleep(wait)
+
 
     def congestion(self) -> float:
         if self._burst <= 0:
