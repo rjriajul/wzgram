@@ -26,13 +26,14 @@ from typing import Optional
 
 import socks
 
-from pyrogram.crypto.executor import create_crypto_executor
+from pyrogram.crypto.executor import get_crypto_executor
 
 log = logging.getLogger(__name__)
 
 
 class TCP:
-    TIMEOUT = 10
+    TIMEOUT = int(os.environ.get("WZGRAM_TCP_TIMEOUT", 10))
+    CONNECT_TIMEOUT = int(os.environ.get("WZGRAM_TCP_CONNECT_TIMEOUT", 600))
 
     def __init__(self, ipv6: bool, proxy: dict, crypto_executor: Optional[ThreadPoolExecutor] = None, loop: Optional[asyncio.AbstractEventLoop] = None):
         self.socket = None
@@ -51,7 +52,7 @@ class TCP:
 
         self.proxy = proxy
 
-        self.crypto_executor = crypto_executor or create_crypto_executor()
+        self.crypto_executor = crypto_executor or get_crypto_executor()
 
         if proxy:
             hostname = proxy.get("hostname")
@@ -75,7 +76,7 @@ class TCP:
                 password=proxy.get("password", None)
             )
 
-            self.socket.settimeout(TCP.TIMEOUT)
+            self.socket.settimeout(TCP.CONNECT_TIMEOUT)
 
             log.info("Using proxy %s", hostname)
         else:
@@ -91,13 +92,13 @@ class TCP:
             try:
                 await asyncio.wait_for(
                     self.loop.run_in_executor(None, self.socket.connect, address),
-                    TCP.TIMEOUT
+                    TCP.CONNECT_TIMEOUT
                 )
             except asyncio.TimeoutError:
                 raise TimeoutError("Proxy connection timed out")
         else:
             try:
-                await asyncio.wait_for(self.loop.sock_connect(self.socket, address), TCP.TIMEOUT)
+                await asyncio.wait_for(self.loop.sock_connect(self.socket, address), TCP.CONNECT_TIMEOUT)
             except asyncio.TimeoutError:
                 raise TimeoutError("Connection timed out")
 

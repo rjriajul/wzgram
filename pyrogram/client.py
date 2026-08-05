@@ -39,7 +39,7 @@ from typing import AsyncGenerator, Callable, List, Optional, Type, Union
 import pyrogram
 from pyrogram import __license__, __version__, enums, raw, utils
 from pyrogram.crypto import aes
-from pyrogram.crypto.executor import create_crypto_executor
+from pyrogram.crypto.executor import get_crypto_executor
 from pyrogram.errors import (
     AuthBytesInvalid,
     BadRequest,
@@ -277,7 +277,18 @@ class Client(Methods):
     CHATLIST_INVITE_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:addlist/|\+))([\w-]+)$")
     SAVED_GIFT_RE = re.compile(r"^(-\d+)_(\d+)$")
     CHANNEL_MESSAGE_LINK_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$")
-    WORKERS = min(32, (os.cpu_count() or 0) + 4)  # os.cpu_count() can be None
+    def _default_workers() -> int:
+        override = os.environ.get("WZGRAM_WORKERS")
+
+        if override:
+            try:
+                return max(1, int(override))
+            except ValueError:
+                pass
+
+        return min(32, (os.cpu_count() or 0) + 4)
+
+    WORKERS = _default_workers()
     WORKDIR = PARENT_DIR
 
     # Interval of seconds in which the updates watchdog will kick in
@@ -386,7 +397,7 @@ class Client(Methods):
         self.auto_no_updates = auto_no_updates
 
         self.executor = ThreadPoolExecutor(max(1, self.workers // 4), thread_name_prefix="Handler")
-        self.crypto_executor = create_crypto_executor()
+        self.crypto_executor = get_crypto_executor()
 
         self.storage: Storage
 
@@ -1623,6 +1634,7 @@ class Client(Methods):
             is_media=is_media,
             server_address=server_address,
             port=port,
+            crypto_executor=self.crypto_executor,
         )
 
         if not temporary:
@@ -1663,6 +1675,7 @@ class Client(Methods):
         )
         session = Session(
             self, dc_id, auth_key, await self.storage.test_mode(), is_media=True,
+            crypto_executor=self.crypto_executor,
         )
         await session.start()
         if dc_id != await self.storage.dc_id():

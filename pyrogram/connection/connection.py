@@ -21,7 +21,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Type
 
-from pyrogram.crypto.executor import create_crypto_executor
+from pyrogram.crypto.executor import get_crypto_executor
 from .transport import TCP, TCPAbridged
 from ..session.internals import DataCenter, get_dc_address
 
@@ -51,11 +51,9 @@ class Connection:
         self.media = media
         self.protocol_factory = protocol_factory
         if crypto_executor is None:
-            self.crypto_executor = create_crypto_executor()
-            self._owned_executor = True
+            self.crypto_executor = get_crypto_executor()
         else:
             self.crypto_executor = crypto_executor
-            self._owned_executor = False
 
         if server_address and port:
             self.address = (server_address, port)
@@ -96,8 +94,6 @@ class Connection:
     async def close(self):
         if self.protocol is None:
             return
-        if self._owned_executor:
-            self.crypto_executor.shutdown(wait=False)
         async with self.protocol.lock:
             await self.protocol.close()
         log.info("Disconnected")

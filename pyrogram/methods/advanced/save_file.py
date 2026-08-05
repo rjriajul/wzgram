@@ -307,7 +307,7 @@ class SaveFile:
                 for _ in workers:
                     await queue.put(None)
 
-                await asyncio.gather(*workers)
+                await asyncio.gather(*workers, return_exceptions=True)
 
                 if isinstance(path, (str, PurePath)):
                     fp.close()

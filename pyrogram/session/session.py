@@ -32,6 +32,7 @@ import warpcrypto
 import pyrogram
 from pyrogram import raw
 from pyrogram.connection import Connection
+from pyrogram.crypto.executor import get_crypto_executor
 from pyrogram.errors import (
     RPCError, InternalServerError, AuthKeyDuplicated, FloodWait, FloodPremiumWait, ServiceUnavailable,
     BadMsgNotification, SecurityCheckMismatch
@@ -85,13 +86,9 @@ class Session:
         self.server_address = server_address
         self.port = port
         if crypto_executor is None:
-            self.crypto_executor = ThreadPoolExecutor(
-                max_workers=1, thread_name_prefix="Crypto"
-            )
-            self._owned_executor = True
+            self.crypto_executor = get_crypto_executor()
         else:
             self.crypto_executor = crypto_executor
-            self._owned_executor = False
 
         self.connection = None
 
@@ -135,7 +132,9 @@ class Session:
 
     async def start(self):
         self._stopping = False
+        attempt = 0
         while True:
+            attempt += 1
             self.connection = Connection(
                 self.dc_id,
                 self.test_mode,
@@ -183,10 +182,17 @@ class Session:
                 raise e
             except (OSError, RPCError):
                 await self.stop()
-                if self._owned_executor:
-                    self.crypto_executor = ThreadPoolExecutor(
-                        max_workers=1, thread_name_prefix="Crypto"
-                    )
+
+                # Exponential backoff (capped) so a flaky network doesn't make
+                # the session spin in a tight connect/retry loop. Reconnects are
+                # especially expensive on low-memory hosts, so slow the loop
+                # down instead of thrashing.
+                backoff = min(2 ** (attempt - 1), 30)
+                log.debug(
+                    "Session start attempt %d failed, retrying in %ss",
+                    attempt, backoff
+                )
+                await asyncio.sleep(backoff)
             except (Exception, asyncio.CancelledError) as e:
                 await self.stop()
                 raise e
@@ -229,8 +235,10 @@ class Session:
         if self.connection:
             await self.connection.close()
 
-        if self._owned_executor:
-            self.crypto_executor.shutdown(wait=False)
+        # Wake every in-flight request so it re-checks state (and retries via
+        # invoke) instead of hanging until its own timeout.
+        for result in self.results.values():
+            result.event.set()
 
         if not self.is_media and callable(self.client.disconnect_handler):
             try:
@@ -248,11 +256,6 @@ class Session:
             self._restart_done.clear()
             try:
                 await self.stop()
-                if self._owned_executor:
-                    self.crypto_executor.shutdown(wait=False)
-                    self.crypto_executor = ThreadPoolExecutor(
-                        max_workers=1, thread_name_prefix="Crypto"
-                    )
                 if self.client.storage.conn is None:
                     await self.client.storage.open()
                 await self.start()
@@ -260,14 +263,20 @@ class Session:
                 self._restart_done.set()
 
     async def handle_packet(self, packet):
-        msg_id, seq_no, length, body_bytes, total_len = await self.loop.run_in_executor(
-            self.connection.protocol.crypto_executor,
-            warpcrypto.unpack_message,
-            packet,
-            self.session_id,
-            self.auth_key,
-            self.auth_key_id
-        )
+        try:
+            msg_id, seq_no, length, body_bytes, total_len = await self.loop.run_in_executor(
+                self.connection.protocol.crypto_executor,
+                warpcrypto.unpack_message,
+                packet,
+                self.session_id,
+                self.auth_key,
+                self.auth_key_id
+            )
+        except Exception as e:
+            # A corrupt/undecryptable frame (or a protocol torn down by a
+            # concurrent restart) must not kill the background task.
+            log.warning("Failed to decrypt packet: %s %s", type(e).__name__, e)
+            return
 
         # https://core.telegram.org/mtproto/security_guidelines#checking-message-length
         padding_len = total_len - 16 - length
@@ -376,7 +385,7 @@ class Session:
                         ping_id=0, disconnect_delay=self.WAIT_TIMEOUT + 10
                     ), False
                 )
-            except (OSError, RPCError):
+            except (OSError, TimeoutError, RPCError):
                 pass
 
         log.info("PingTask stopped")
@@ -439,6 +448,9 @@ class Session:
 
     async def send(self, data: TLObject, wait_response: bool = True, timeout: float = WAIT_TIMEOUT,
                    retry: int = 0):
+        if self.connection is None or self.connection.protocol is None:
+            raise OSError("Connection is not established")
+
         message = self.msg_factory(data)
         msg_id = message.msg_id
 
@@ -475,8 +487,10 @@ class Session:
                 await asyncio.wait_for(self.results[msg_id].event.wait(), timeout)
             except asyncio.TimeoutError:
                 pass
-
-            result = self.results.pop(msg_id).value
+            finally:
+                # Always release the pending request so a cancelled caller
+                # doesn't leak an entry into self.results.
+                result = self.results.pop(msg_id).value
 
             if result is None:
                 raise TimeoutError("Request timed out")
