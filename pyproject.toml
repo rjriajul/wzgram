@@ -9,7 +9,10 @@ description = "Elegant, modern and asynchronous Telegram MTProto API framework i
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Dan", email = "dan@pyrogram.org" }]
-maintainers = [{ name = "rjriajul" }]
+maintainers = [
+    { name = "rjriajul" },
+    { name = "SilentDemonSD", email = "105407900+SilentDemonSD@users.noreply.github.com" },
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
