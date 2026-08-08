@@ -1695,8 +1695,16 @@ class Client(Methods):
     async def _get_media_session_pool(self, dc_id: int, n: int) -> list:
         lock = self._media_sessions_locks.setdefault(dc_id, asyncio.Lock())
         async with lock:
-            pool = self.media_session_pools.get(dc_id, [])
-            pool = [s for s in pool if s.is_started.is_set()]
+            pool = []
+            for session in self.media_session_pools.get(dc_id, []):
+                if session.is_usable:
+                    pool.append(session)
+                else:
+                    try:
+                        await session.stop()
+                    except Exception:
+                        log.exception("Error stopping dead media session")
+
             needed = n - len(pool)
             if needed > 0:
                 media = await self.get_session(dc_id, is_media=True)

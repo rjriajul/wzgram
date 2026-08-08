@@ -33,14 +33,15 @@ class TCPAbridged(TCP):
         await super().connect(address)
         await super().send(b"\xef")
 
-    async def send(self, data: bytes, *args):
+    async def send(self, data: bytes, timeout: Optional[float] = None):
         length = len(data) // 4
 
         await super().send(
             (bytes([length])
              if length <= 126
              else b"\x7f" + length.to_bytes(3, "little"))
-            + data
+            + data,
+            timeout
         )
 
     async def recv(self, length: int = 0) -> Optional[bytes]:

@@ -28,9 +28,20 @@ class FakeSession:
         self.server_address = kwargs.get("server_address")
         self.port = kwargs.get("port")
         self.is_started = asyncio.Event()
+        self._restart_done = asyncio.Event()
+        self._restart_done.set()
+        self.stopped = False
+
+    @property
+    def is_usable(self) -> bool:
+        return self.is_started.is_set() or not self._restart_done.is_set()
 
     async def start(self):
         self.is_started.set()
+
+    async def stop(self):
+        self.stopped = True
+        self.is_started.clear()
 
     async def invoke(self, *args, **kwargs):
         return None
@@ -107,3 +118,23 @@ async def test_pool_grows_without_re_exporting(monkeypatch):
     assert client.exports == 2
     assert len(grown) == 5
     assert grown[:2] == small
+
+
+async def test_restarting_session_is_kept_dead_one_is_stopped(monkeypatch):
+    monkeypatch.setattr(pyrogram.client, "Session", FakeSession)
+    monkeypatch.setattr(pyrogram.client, "Auth", FakeAuth)
+
+    client = FakeClient()
+    pool = await client._get_media_session_pool(2, 3)
+
+    restarting, dead = pool[0], pool[1]
+    restarting.is_started.clear()
+    restarting._restart_done.clear()
+    dead.is_started.clear()
+
+    kept = await client._get_media_session_pool(2, 3)
+
+    assert restarting in kept, "a restarting session must not be replaced mid-upload"
+    assert dead not in kept
+    assert dead.stopped, "dropped sessions must be stopped, not leaked onto the DC"
+    assert len(kept) == 3

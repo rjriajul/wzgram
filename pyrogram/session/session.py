@@ -117,6 +117,7 @@ class Session:
 
         self.is_started = asyncio.Event()
         self._stopping = False
+        self._last_packet = 0.0
 
         try:
             self.loop = asyncio.get_running_loop()
@@ -127,7 +128,14 @@ class Session:
         self._dynamic_backoff = float(Session.SLEEP_THRESHOLD)
         self._last_flood_decay = 0.0
 
-    async def start(self):
+    @property
+    def is_usable(self) -> bool:
+        return self.is_started.is_set() or not self._restart_done.is_set()
+
+    def is_receiving(self) -> bool:
+        return time.monotonic() - self._last_packet < self.WAIT_TIMEOUT
+
+    async def start(self, max_attempts: Optional[int] = None):
         self._stopping = False
         attempt = 0
         while True:
@@ -180,6 +188,9 @@ class Session:
             except (FloodWait, FloodPremiumWait) as e:
                 await self.stop()
 
+                if max_attempts is not None and attempt >= max_attempts:
+                    raise
+
                 backoff = min(e.value, 30)
                 log.debug(
                     "Session start attempt %d flood-limited, retrying in %ss",
@@ -188,6 +199,9 @@ class Session:
                 await asyncio.sleep(backoff)
             except (InternalServerError, ServiceUnavailable, TimeoutError, OSError):
                 await self.stop()
+
+                if max_attempts is not None and attempt >= max_attempts:
+                    raise
 
                 backoff = min(2 ** (attempt - 1), 30)
                 log.debug(
@@ -204,6 +218,7 @@ class Session:
             else:
                 break
 
+        self._last_packet = time.monotonic()
         self.is_started.set()
 
         log.info("Session started")
@@ -253,7 +268,10 @@ class Session:
 
     async def restart(self):
         if self._restart_lock.locked():
-            await self._restart_done.wait()
+            try:
+                await asyncio.wait_for(self._restart_done.wait(), self.WAIT_TIMEOUT)
+            except asyncio.TimeoutError:
+                pass
             return
         async with self._restart_lock:
             self._restart_done.clear()
@@ -261,7 +279,7 @@ class Session:
                 await self.stop()
                 if self.client.storage.conn is None:
                     await self.client.storage.open()
-                await self.start()
+                await self.start(max_attempts=self.MAX_RETRIES)
             finally:
                 self._restart_done.set()
 
@@ -436,6 +454,8 @@ class Session:
 
                 break
 
+            self._last_packet = time.monotonic()
+
             if not self._stopping:
                 self.loop.create_task(self._handle_packet_wrapper(packet))
 
@@ -478,7 +498,7 @@ class Session:
             raise
 
         try:
-            await asyncio.wait_for(self.connection.send(payload), timeout=timeout or self.WAIT_TIMEOUT)
+            await self.connection.send(payload, timeout or self.WAIT_TIMEOUT)
         except OSError as e:
             self.results.pop(msg_id, None)
             raise e
@@ -590,7 +610,9 @@ class Session:
                     query_name, str(e) or repr(e)
                 )
 
-                if isinstance(e, (OSError, TimeoutError)):
+                if isinstance(e, TimeoutError) and self.is_receiving():
+                    await asyncio.sleep(1)
+                elif isinstance(e, OSError):
                     await self.restart()
                 else:
                     await asyncio.sleep(1)

@@ -95,8 +95,8 @@ class Connection:
             await self.protocol.close()
         log.info("Disconnected")
 
-    async def send(self, data: bytes):
-        await self.protocol.send(data)
+    async def send(self, data: bytes, timeout: Optional[float] = None):
+        await self.protocol.send(data, timeout)
 
     async def recv(self) -> Optional[bytes]:
         return await self.protocol.recv()

@@ -122,12 +122,12 @@ class TCP:
         except Exception as e:
             log.info("Close exception: %s %s", type(e).__name__, e)
 
-    async def send(self, data: bytes):
+    async def send(self, data: bytes, timeout: Optional[float] = None):
         async with self.lock:
             try:
                 if self.writer is not None:
                     self.writer.write(data)
-                    await self.writer.drain()
+                    await asyncio.wait_for(self.writer.drain(), timeout or TCP.TIMEOUT)
             except Exception as e:
                 log.info("Send exception: %s %s", type(e).__name__, e)
                 raise OSError(e)
