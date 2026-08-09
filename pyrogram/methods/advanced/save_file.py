@@ -32,6 +32,7 @@ import pyrogram
 from pyrogram import StopTransmission
 from pyrogram import raw
 from pyrogram.errors import RPCError
+from pyrogram.session import Session
 
 log = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class SaveFile:
 
                     for attempt in range(MAX_RETRIES):
                         try:
-                            await session.invoke(data)
+                            await session.invoke(data, timeout=Session.MEDIA_TIMEOUT)
                             break
                         except StopTransmission:
                             raise
@@ -183,6 +184,7 @@ class SaveFile:
             _next_dispatch = 0.0
             _dispatch_interval = 1.0 / rate_limit
             _stalled_since = 0.0
+            failed = False
 
             _progress_task = None
             if progress:
@@ -231,9 +233,9 @@ class SaveFile:
 
                     async def _check_workers():
                         for t in workers:
-                            if t.done():
+                            if t.done() and not t.cancelled():
                                 exc = t.exception()
-                                if exc is not None and not isinstance(exc, asyncio.CancelledError):
+                                if exc is not None:
                                     raise exc
 
                     await _check_workers()
@@ -287,9 +289,11 @@ class SaveFile:
                         file_part += 1
 
 
-            except StopTransmission:
+            except (StopTransmission, asyncio.CancelledError):
+                failed = True
                 raise
             except Exception as e:
+                failed = True
                 log.exception(e)
                 raise
             else:
@@ -312,8 +316,12 @@ class SaveFile:
                 if next_batch_task is not None and not next_batch_task.done():
                     next_batch_task.cancel()
 
-                for _ in workers:
-                    await queue.put(None)
+                if failed:
+                    for w in workers:
+                        w.cancel()
+                else:
+                    for _ in workers:
+                        await queue.put(None)
 
                 await asyncio.gather(*workers, return_exceptions=True)
 

@@ -168,3 +168,84 @@ async def test_is_usable_covers_in_flight_restart(session_factory):
 
     session._restart_done.set()
     assert not session.is_usable
+
+async def test_midmessage_read_timeout_is_fatal(monkeypatch):
+    from pyrogram.connection.transport import TCPAbridged
+
+    monkeypatch.setattr(TCP, "TIMEOUT", 0.05)
+
+    class _StallingReader:
+        def __init__(self):
+            self.reads = 0
+
+        async def read(self, n):
+            self.reads += 1
+            if self.reads == 1:
+                return b"\x02"
+            await asyncio.sleep(1)
+            return b""
+
+    tcp = TCPAbridged.__new__(TCPAbridged)
+    tcp.reader = _StallingReader()
+
+    with pytest.raises(OSError) as exc:
+        await tcp.recv()
+
+    assert not isinstance(exc.value, TimeoutError), (
+        "a timeout after the length prefix leaves the stream desynced; it must "
+        "not look like a benign idle-read timeout the recv loop can continue past"
+    )
+
+
+async def test_slow_drain_is_not_reported_as_a_dead_socket(monkeypatch):
+    monkeypatch.setattr(TCP, "TIMEOUT", 0.05)
+
+    class _StallingWriter:
+        def write(self, data):
+            pass
+
+        async def drain(self):
+            await asyncio.sleep(1)
+
+    tcp = TCP.__new__(TCP)
+    tcp.writer = _StallingWriter()
+    tcp.lock = asyncio.Lock()
+
+    with pytest.raises(TimeoutError):
+        await tcp.send(b"\x00\x00\x00\x00")
+
+
+async def test_slow_drain_keeps_the_request_in_flight(session_factory):
+    from types import SimpleNamespace
+
+    session = session_factory()
+    drain_deadlines = []
+
+    class _Connection:
+        protocol = SimpleNamespace(crypto_executor=None)
+
+        async def send(self, payload, timeout=None):
+            drain_deadlines.append(timeout)
+            raise TimeoutError("Socket write backpressure")
+
+    session.connection = _Connection()
+
+    async def _reply_late():
+        while not session.results:
+            await asyncio.sleep(0)
+        for result in session.results.values():
+            result.value = "pong"
+            result.event.set()
+
+    asyncio.ensure_future(_reply_late())
+
+    got = await session.send(raw.functions.Ping(ping_id=0), timeout=Session.MEDIA_TIMEOUT)
+
+    assert got == "pong", (
+        "the payload is already in the transport when drain times out — failing "
+        "the request just puts a duplicate part on the link that is the bottleneck"
+    )
+    assert drain_deadlines == [Session.WAIT_TIMEOUT], (
+        "the drain deadline bounds how long a write holds the connection lock, so "
+        "it must stay capped even for media requests or the ping cannot get out"
+    )

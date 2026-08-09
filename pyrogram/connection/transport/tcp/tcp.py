@@ -124,10 +124,14 @@ class TCP:
 
     async def send(self, data: bytes, timeout: Optional[float] = None):
         async with self.lock:
+            if self.writer is None:
+                return
+
             try:
-                if self.writer is not None:
-                    self.writer.write(data)
-                    await asyncio.wait_for(self.writer.drain(), timeout or TCP.TIMEOUT)
+                self.writer.write(data)
+                await asyncio.wait_for(self.writer.drain(), timeout or TCP.TIMEOUT)
+            except asyncio.TimeoutError:
+                raise TimeoutError("Socket write backpressure")
             except Exception as e:
                 log.info("Send exception: %s %s", type(e).__name__, e)
                 raise OSError(e)

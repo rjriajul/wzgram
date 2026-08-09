@@ -53,10 +53,12 @@ class Result:
 class Session:
     START_TIMEOUT = 2
     WAIT_TIMEOUT = 15
+    MEDIA_TIMEOUT = int(os.environ.get("WZGRAM_MEDIA_TIMEOUT", 120))
     SLEEP_THRESHOLD = 10
     MAX_RETRIES = 10
     ACKS_THRESHOLD = 10
     PING_INTERVAL = 5
+    DISCONNECT_DELAY = 75
     STORED_MSG_IDS_MAX_SIZE = 1000 * 2
 
     TRANSPORT_ERRORS = {
@@ -401,7 +403,7 @@ class Session:
             try:
                 await self.send(
                     raw.functions.PingDelayDisconnect(
-                        ping_id=0, disconnect_delay=self.WAIT_TIMEOUT + 10
+                        ping_id=0, disconnect_delay=self.DISCONNECT_DELAY
                     ), False
                 )
             except (OSError, TimeoutError, RPCError):
@@ -498,7 +500,9 @@ class Session:
             raise
 
         try:
-            await self.connection.send(payload, timeout or self.WAIT_TIMEOUT)
+            await self.connection.send(payload, min(timeout or self.WAIT_TIMEOUT, self.WAIT_TIMEOUT))
+        except TimeoutError:
+            log.debug("Slow drain, waiting for the reply anyway")
         except OSError as e:
             self.results.pop(msg_id, None)
             raise e
@@ -557,6 +561,13 @@ class Session:
         timeout: float = WAIT_TIMEOUT,
         sleep_threshold: float = SLEEP_THRESHOLD
     ):
+        if isinstance(query, (raw.functions.InvokeWithoutUpdates, raw.functions.InvokeWithTakeout)):
+            inner_query = query.query
+        else:
+            inner_query = query
+
+        query_name = ".".join(inner_query.QUALNAME.split(".")[1:])
+
         while retries > 0:
             if not self.is_started.is_set():
                 try:
@@ -566,13 +577,6 @@ class Session:
                     if retries == 0:
                         raise TimeoutError("Session failed to start")
                     continue
-
-            if isinstance(query, (raw.functions.InvokeWithoutUpdates, raw.functions.InvokeWithTakeout)):
-                inner_query = query.query
-            else:
-                inner_query = query
-
-            query_name = ".".join(inner_query.QUALNAME.split(".")[1:])
 
             try:
                 return await self.send(query, timeout=timeout)

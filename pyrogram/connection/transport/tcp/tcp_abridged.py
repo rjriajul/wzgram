@@ -50,10 +50,13 @@ class TCPAbridged(TCP):
         if length is None:
             return None
 
-        if length == b"\x7f":
-            length = await super().recv(3)
+        try:
+            if length == b"\x7f":
+                length = await super().recv(3)
 
-            if length is None:
-                return None
+                if length is None:
+                    return None
 
-        return await super().recv(int.from_bytes(length, "little") * 4)
+            return await super().recv(int.from_bytes(length, "little") * 4)
+        except TimeoutError as e:
+            raise OSError("Socket read timed out mid-message") from e
