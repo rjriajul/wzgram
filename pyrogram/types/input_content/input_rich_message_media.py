@@ -63,4 +63,4 @@ class InputRichMessageMedia(Object):
         self.users = users
 
     def write(self) -> tuple:
-        return (self.photos or [], self.documents or [], self.users or [])
+        return (self.photos, self.documents, self.users)

@@ -84,8 +84,8 @@ class SendEphemeralMessage:
                 Parse mode for ``rich_text``. Defaults to Markdown.
 
             disable_web_page_preview (``bool``, *optional*):
-                Disables link previews for links in the message.
-                Only effective when ``rich_text`` is used.
+                Ignored. The ephemeral message RPC has no link preview field,
+                so this cannot be honoured. Kept only for backwards compatibility.
 
         Returns:
             :obj:`~pyrogram.types.Message`: On success, the sent ephemeral message is returned.
@@ -100,12 +100,10 @@ class SendEphemeralMessage:
             if rich_text_parse_mode == enums.ParseMode.HTML:
                 rich_message = raw.types.InputRichMessageHTML(
                     html=rich_text,
-                    noautolink=disable_web_page_preview if disable_web_page_preview is not None else None,
                 )
             else:
                 rich_message = raw.types.InputRichMessageMarkdown(
                     markdown=rich_text,
-                    noautolink=disable_web_page_preview if disable_web_page_preview is not None else None,
                 )
 
             r = await self.invoke(

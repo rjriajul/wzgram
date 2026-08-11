@@ -93,9 +93,9 @@ class EditMessageText:
 
         if rich_text is not None:
             if rich_text_parse_mode == enums.ParseMode.HTML:
-                rich_msg = raw.types.InputRichMessageHTML(html=rich_text, noautolink=disable_web_page_preview if disable_web_page_preview is not None else None)
+                rich_msg = raw.types.InputRichMessageHTML(html=rich_text)
             else:
-                rich_msg = raw.types.InputRichMessageMarkdown(markdown=rich_text, noautolink=disable_web_page_preview if disable_web_page_preview is not None else None)
+                rich_msg = raw.types.InputRichMessageMarkdown(markdown=rich_text)
             text_params = {"message": "", "rich_message": rich_msg}
         else:
             text_params = await utils.parse_text_entities(self, text, parse_mode, entities)

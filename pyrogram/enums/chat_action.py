@@ -70,15 +70,3 @@ class ChatAction(AutoName):
 
     CANCEL = raw.types.SendMessageCancelAction
     "Cancel ongoing chat action"
-
-    EMOJI_INTERACTION = raw.types.SendMessageEmojiInteraction
-    "Emoji interaction"
-
-    EMOJI_INTERACTION_SEEN = raw.types.SendMessageEmojiInteractionSeen
-    "Emoji interaction seen"
-
-    TEXT_DRAFT = raw.types.SendMessageTextDraftAction
-    "Text draft chat action"
-
-    RICH_MESSAGE_DRAFT = raw.types.SendMessageRichMessageDraftAction
-    "Rich message draft chat action"

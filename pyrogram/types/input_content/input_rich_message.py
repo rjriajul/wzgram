@@ -48,7 +48,7 @@ class InputRichMessage(Object):
 
         blocks (List of :obj:`InputRichBlock`, *optional*):
             List of blocks that define the rich message content.
-            See :doc:`Rich Message Formatting Options </topics/rich-message-formatting-options>` for more details.
+            See `rich message formatting options <https://core.telegram.org/bots/api#rich-message-formatting-options>`__ for more details.
 
         media (:obj:`InputRichMessageMedia`, *optional*):
             Media referenced by the blocks.
@@ -85,8 +85,8 @@ class InputRichMessage(Object):
                 rtl=self.is_rtl,
                 noautolink=self.skip_entity_detection
             )
-        elif self.blocks is not None:
-            photos, documents, users = self.media.write() if self.media else ([], [], [])
+        elif self.blocks:
+            photos, documents, users = self.media.write() if self.media else (None, None, None)
             input_rich_message = raw.types.InputRichMessage(
                 blocks=[block.write() for block in self.blocks],
                 rtl=self.is_rtl,

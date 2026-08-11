@@ -179,12 +179,10 @@ class SendMessage:
             if rich_text_parse_mode == enums.ParseMode.HTML:
                 rich_message = raw.types.InputRichMessageHTML(
                     html=rich_text,
-                    noautolink=disable_web_page_preview if disable_web_page_preview is not None else None,
                 )
             else:
                 rich_message = raw.types.InputRichMessageMarkdown(
                     markdown=rich_text,
-                    noautolink=disable_web_page_preview if disable_web_page_preview is not None else None,
                 )
             r = await self.invoke(
                 raw.functions.messages.SendMessage(

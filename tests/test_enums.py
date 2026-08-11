@@ -86,6 +86,13 @@ def test_chat_action():
     assert a.CHOOSE_STICKER
 
 
+def test_chat_action_all_constructible():
+    # mirrors send_chat_action: every member must build with no caller-supplied data
+    for m in enums.ChatAction:
+        name = m.name.lower()
+        m.value(progress=0) if "upload" in name or "history" in name else m.value()
+
+
 def test_chat_member_status():
     s = enums.ChatMemberStatus
     assert s.OWNER
