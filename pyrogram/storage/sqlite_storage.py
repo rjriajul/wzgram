@@ -374,7 +374,7 @@ class SQLiteStorage(Storage):
                 lock_path.unlink()
 
     async def update_peers(self, peers: List[Tuple[int, int, str, str]]):
-        if not peers:
+        if not peers or self.conn is None:
             return
 
         fresh = [p for p in peers if not self._peer_cache.matches(*p)]
@@ -394,7 +394,7 @@ class SQLiteStorage(Storage):
         await self._maybe_commit()
 
     async def update_usernames(self, usernames: List[Tuple[int, List[str]]]):
-        if not usernames:
+        if not usernames or self.conn is None:
             return
         await self.conn.executemany("DELETE FROM usernames WHERE id = ?", [(id,) for id, _ in usernames])
 
@@ -405,6 +405,9 @@ class SQLiteStorage(Storage):
         await self._maybe_commit()
 
     async def update_state(self, value: Tuple[int, int, int, int, int] = object):
+        if self.conn is None:
+            return [] if value is object else None
+
         if value is object:
             cursor = await self.conn.execute(
                 "SELECT id, pts, qts, date, seq FROM update_state ORDER BY date ASC"
@@ -432,6 +435,9 @@ class SQLiteStorage(Storage):
         if row is not None:
             return get_input_peer(*row)
 
+        if self.conn is None:
+            raise ConnectionError("Database is not open")
+
         cursor = await self.conn.execute(
             "SELECT id, access_hash, type FROM peers WHERE id = ?", (peer_id,)
         )
@@ -445,6 +451,9 @@ class SQLiteStorage(Storage):
         return get_input_peer(*r)
 
     async def get_peer_by_username(self, username: str):
+        if self.conn is None:
+            raise ConnectionError("Database is not open")
+
         cursor = await self.conn.execute(
             "SELECT p.id, p.access_hash, p.type, p.last_update_on FROM peers p "
             "JOIN usernames u ON p.id = u.id "
@@ -463,6 +472,9 @@ class SQLiteStorage(Storage):
         return get_input_peer(*r[:3])
 
     async def get_peer_by_phone_number(self, phone_number: str):
+        if self.conn is None:
+            raise ConnectionError("Database is not open")
+
         cursor = await self.conn.execute(
             "SELECT id, access_hash, type FROM peers WHERE phone_number = ?", (phone_number,)
         )
