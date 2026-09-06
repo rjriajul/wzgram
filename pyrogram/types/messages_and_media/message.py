@@ -3590,7 +3590,7 @@ class Message(Object, Update):
         game_short_name: str,
         disable_notification: Optional[bool] = None,
         message_thread_id: Optional[int] = None,
-        effect_id: int = Optional[None],
+        effect_id: Optional[int] = None,
         reply_parameters: Optional["types.ReplyParameters"] = None,
         allow_paid_broadcast: Optional[bool] = None,
         reply_markup: Optional[
@@ -3685,7 +3685,7 @@ class Message(Object, Update):
         game_short_name: str,
         disable_notification: Optional[bool] = None,
         message_thread_id: Optional[int] = None,
-        effect_id: int = Optional[None],
+        effect_id: Optional[int] = None,
         reply_parameters: Optional["types.ReplyParameters"] = None,
         allow_paid_broadcast: Optional[bool] = None,
         reply_markup: Optional[

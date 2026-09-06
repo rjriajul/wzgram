@@ -98,11 +98,7 @@ class InlineQuery(Object, Update):
             query=inline_query.query,
             offset=inline_query.offset,
             chat_type=chat_type,
-            location=types.Location(
-                longitude=inline_query.geo.long,
-                latitude=inline_query.geo.lat,
-                client=client
-            ) if inline_query.geo else None,
+            location=types.Location._parse(inline_query.geo) if inline_query.geo else None,
             client=client
         )
 
