@@ -203,8 +203,8 @@ class SaveFile:
                 rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_BOT", 120))
                 pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_BOT", 5)), POOL_SIZE) if is_big else 1
             elif is_premium:
-                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_PREMIUM", 160))
-                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_PREMIUM", 6)), POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_PREMIUM", 300))
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_PREMIUM", 14)), POOL_SIZE) if is_big else 1
             else:
                 rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_USER", 120))
                 pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_USER", 5)), POOL_SIZE) if is_big else 1
