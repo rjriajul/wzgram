@@ -200,14 +200,14 @@ class SaveFile:
             file_total_parts = int(math.ceil(file_size / part_size))
             is_big = file_size > 10 * 1024 * 1024
             if is_bot:
-                rate_limit = 40  # ~20 MiB/s
-                pool_size = min(8, POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_BOT", 120))
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_BOT", 5)), POOL_SIZE) if is_big else 1
             elif is_premium:
-                rate_limit = 300
-                pool_size = min(14, POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_PREMIUM", 160))
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_PREMIUM", 6)), POOL_SIZE) if is_big else 1
             else:
-                rate_limit = 50  # ~25 MiB/s
-                pool_size = min(12, POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_USER", 120))
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_USER", 5)), POOL_SIZE) if is_big else 1
 
             is_missing_part = file_id is not None
             file_id = file_id or self.rnd_id()

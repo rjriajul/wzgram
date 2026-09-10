@@ -6,7 +6,7 @@ from pyrogram import raw
 from pyrogram.connection import Connection
 from pyrogram.connection.transport import TCPAbridged
 from pyrogram.errors import AuthKeyUnregistered
-from pyrogram.session.session import Session
+from pyrogram.session.session import Session, _serialize_file_part
 
 
 class DummyClient:
@@ -330,3 +330,58 @@ async def test_restart_tolerates_storage_without_conn(monkeypatch, session_facto
 
     with pytest.raises(OSError):
         await asyncio.wait_for(session_factory().restart(), timeout=5)
+
+
+UPLOAD_PART_SIZES = [0, 1, 3, 4, 252, 253, 254, 255, 256, 1024, 512 * 1024, 512 * 1024 + 3]
+
+
+def _upload_parts(payload):
+    return [
+        raw.functions.upload.SaveBigFilePart(
+            file_id=7, file_part=1, file_total_parts=64, bytes=payload
+        ),
+        raw.functions.upload.SaveFilePart(file_id=7, file_part=1, bytes=payload),
+    ]
+
+
+@pytest.mark.parametrize("size", UPLOAD_PART_SIZES)
+def test_hand_packed_upload_part_matches_the_generated_writer(size):
+    payload = bytes(range(256)) * (size // 256) + bytes(range(size % 256))
+
+    for part in _upload_parts(payload):
+        assert _serialize_file_part(part) == part.write(), (
+            f"{type(part).__name__} of {size} B serialises differently by hand"
+        )
+
+
+def test_only_upload_parts_take_the_hand_packed_path():
+    assert _serialize_file_part(raw.functions.Ping(ping_id=0)) is None
+
+
+async def test_send_hand_packs_upload_parts_and_declares_their_real_length(
+    monkeypatch, session_factory
+):
+    s = session_factory()
+    part = _upload_parts(bytes([0x11]) * (512 * 1024))[0]
+
+    s.connection = type("C", (), {
+        "protocol": type("P", (), {"crypto_executor": None})(),
+        "send": staticmethod(lambda payload: _packed()),
+    })()
+
+    packed = []
+    monkeypatch.setattr(
+        "pyrogram.session.session.warpcrypto.pack_message",
+        lambda msg_id, seq_no, serialized, *rest: packed.append(bytes(serialized)) or b"p",
+    )
+
+    declared = []
+    real_factory = s.msg_factory
+    s.msg_factory = lambda data, length: declared.append(length) or real_factory(data, length)
+
+    await s.send(part, wait_response=False)
+
+    assert packed[0] == part.write(), "the wire bytes must match the generated writer"
+    assert declared == [len(packed[0])], (
+        f"declared {declared} but put {len(packed[0])} B on the wire"
+    )

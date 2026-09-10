@@ -20,6 +20,7 @@ import asyncio
 import bisect
 import logging
 import os
+import struct
 import time
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha1
@@ -42,6 +43,28 @@ from pyrogram.raw.core import TLObject, Message, MsgContainer, Int, FutureSalts
 from .internals import MsgId, MsgFactory
 
 log = logging.getLogger(__name__)
+
+
+def _serialize_file_part(data: TLObject) -> Optional[bytes]:
+    if isinstance(data, raw.functions.upload.SaveBigFilePart):
+        header = struct.pack(
+            "<Iqii", data.ID, data.file_id, data.file_part, data.file_total_parts
+        )
+    elif isinstance(data, raw.functions.upload.SaveFilePart):
+        header = struct.pack("<Iqi", data.ID, data.file_id, data.file_part)
+    else:
+        return None
+
+    length = len(data.bytes)
+
+    if length > 253:
+        prefix = b"\xfe" + length.to_bytes(3, "little")
+        padding = -length % 4
+    else:
+        prefix = bytes((length,))
+        padding = -(length + 1) % 4
+
+    return b"".join((header, prefix, data.bytes, bytes(padding)))
 
 
 class Result:
@@ -617,7 +640,10 @@ class Session:
         if self.connection is None or self.connection.protocol is None:
             raise OSError("Connection is not established")
 
-        serialized = data.write()
+        serialized = _serialize_file_part(data)
+        if serialized is None:
+            serialized = data.write()
+
         message = self.msg_factory(data, len(serialized))
         msg_id = message.msg_id
 
