@@ -26,5 +26,5 @@ class List(list):
         # noinspection PyCallByClass
         return Object.__str__(self)
 
-    def __repr__(self):
-        return f"pyrogram.types.List([{','.join(Object.__repr__(i) for i in self)}])"
+    def __repr__(self) -> str:
+        return f"pyrogram.types.List([{','.join(repr(item) for item in self)}])"

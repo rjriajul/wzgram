@@ -1618,3 +1618,23 @@ async def test_gift_attribute_parses_an_attribute_without_a_rarity():
     assert parsed.rarity is None
     assert parsed.type is enums.GiftAttributeType.ORIGINAL_DETAILS
     assert parsed.caption == "hi"
+
+
+# ---------------------------------------------------------------------------
+#  List.__repr__ representation
+# ---------------------------------------------------------------------------
+
+def test_a_list_of_plain_values_is_representable():
+    assert repr(types.List([1, "two"])) == "pyrogram.types.List([1,'two'])"
+
+
+def test_a_nested_list_is_representable():
+    assert repr(types.List([types.List([1])])) == "pyrogram.types.List([pyrogram.types.List([1])])"
+
+
+def test_an_object_still_reports_its_own_shape():
+    username = types.Username(username="someone", active=True)
+
+    assert repr(types.List([username])) == f"pyrogram.types.List([{username!r}])"
+    assert "pyrogram.types.Username(" in repr(username)
+
