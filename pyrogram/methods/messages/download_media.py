@@ -153,6 +153,12 @@ class DownloadMedia:
         directory, file_name = os.path.split(file_name)
         file_name = file_name or media_file_name or ""
 
+        # Sanitize file name to prevent CWE-22 path traversal
+        if file_name:
+            file_name = os.path.basename(file_name.replace("\\", "/")).replace("\x00", "")
+            if not file_name or file_name in (".", ".."):
+                file_name = ""
+
         if not os.path.isabs(file_name):
             directory = self.PARENT_DIR / (directory or DEFAULT_DOWNLOAD_DIR)
 
