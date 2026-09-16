@@ -34,6 +34,7 @@ from pyrogram.errors import (
     PeerIdInvalid,
 )
 from pyrogram.parser import Parser
+from pyrogram.parser import utils as parser_utils
 
 from ..listeners.listener import UNSET
 from ..object import Object
@@ -76,11 +77,10 @@ class Str(str):
     def __getitem__(self, item: Union[SupportsIndex, slice]) -> str:
         text = str(self)
 
-        # Telegram counts offsets in UTF-16 units, where a code point above `0xFFFF` takes
-        #  two, so "😀 250" is 6 offsets long over 5 characters. This table says which
-        #  character each offset lands in: [0, 0, 1, 2, 3, 4]. The emoji owns offsets 0 and
-        #  1, so an index or a cut between the two still names the whole emoji.
-        character_index_at_offset: list[int] = []
+        if not parser_utils.SMP_RE.search(text):
+            return text[item]
+
+        character_index_at_offset: List[int] = []
         for character_index, character in enumerate(text):
             utf_16_units = 2 if ord(character) > 0xFFFF else 1
             character_index_at_offset += [character_index] * utf_16_units
@@ -88,11 +88,10 @@ class Str(str):
         if not isinstance(item, slice):
             return text[character_index_at_offset[item]]
 
-        # A slice spanning both offsets of the emoji names its character twice, and
-        #  `groupby` drops the repeat.
-        selected = character_index_at_offset[item]
-
-        return "".join(text[character_index] for character_index, _ in groupby(selected))
+        return "".join(
+            text[character_index]
+            for character_index, _ in groupby(character_index_at_offset[item])
+        )
 
 
 def _parse_reply_markup(reply_markup: "raw.base.ReplyMarkup"):
