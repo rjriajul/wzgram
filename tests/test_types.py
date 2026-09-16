@@ -1119,6 +1119,38 @@ class TestInlineKeyboardButtonAdditions:
         assert written.type.copy_text == "hello"
         assert types.InlineKeyboardButton.read(written).copy_text.text == "hello"
 
+    async def test_copy_text_accepts_str_directly(self):
+        button = types.InlineKeyboardButton("Copy Phone", copy_text="+18005550199")
+
+        assert isinstance(button.copy_text, types.CopyTextButton)
+        assert button.copy_text.text == "+18005550199"
+
+        client = AsyncMock()
+        written = await button.write(client)
+
+        assert written.type == raw.types.InlineButtonTypeCopy(copy_text="+18005550199")
+
+    async def test_login_url_carries_its_fields(self):
+        button = types.InlineKeyboardButton(
+            "Login",
+            login_url=types.LoginUrl(
+                url="https://example.com",
+                forward_text="Sign in",
+                request_write_access=True
+            )
+        )
+
+        client = AsyncMock()
+        client.resolve_peer = AsyncMock(return_value=raw.types.InputUserSelf())
+        written = await button.write(client)
+
+        assert written.type == raw.types.InputInlineButtonTypeUrlAuth(
+            url="https://example.com",
+            request_write_access=True,
+            fwd_text="Sign in",
+            bot=raw.types.InputUserSelf()
+        )
+
     async def test_pay_round_trips(self):
         written = await self.written(text="Pay", pay=True)
 
