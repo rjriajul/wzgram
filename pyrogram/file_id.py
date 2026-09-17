@@ -136,9 +136,14 @@ class ThumbnailSource(IntEnum):
     """Known thumbnail sources"""
     LEGACY = 0
     THUMBNAIL = 1
-    CHAT_PHOTO_SMALL = 2  # DialogPhotoSmall
-    CHAT_PHOTO_BIG = 3  # DialogPhotoBig
+    CHAT_PHOTO_SMALL = 2
+    CHAT_PHOTO_BIG = 3
     STICKER_SET_THUMBNAIL = 4
+    FULL_LEGACY = 5
+    CHAT_PHOTO_SMALL_LEGACY = 6
+    CHAT_PHOTO_BIG_LEGACY = 7
+    STICKER_SET_THUMBNAIL_LEGACY = 8
+    STICKER_SET_THUMBNAIL_VERSION = 9
 
 
 # Photo-like file ids are longer and contain extra info, the rest are all documents
@@ -175,7 +180,8 @@ class FileId:
         chat_id: Optional[int] = None,
         chat_access_hash: Optional[int] = None,
         sticker_set_id: Optional[int] = None,
-        sticker_set_access_hash: Optional[int] = None
+        sticker_set_access_hash: Optional[int] = None,
+        sticker_set_version: Optional[int] = None
     ):
         self.major = major
         self.minor = minor
@@ -195,6 +201,7 @@ class FileId:
         self.chat_access_hash = chat_access_hash
         self.sticker_set_id = sticker_set_id
         self.sticker_set_access_hash = sticker_set_access_hash
+        self.sticker_set_version = sticker_set_version
 
     @staticmethod
     def decode(file_id: str):
@@ -253,7 +260,9 @@ class FileId:
         media_id, access_hash = struct.unpack("<qq", buffer.read(16))
 
         if file_type in PHOTO_TYPES:
-            volume_id, = struct.unpack("<q", buffer.read(8))
+            has_volume_and_local_id = minor < 32
+            volume_id = struct.unpack("<q", buffer.read(8))[0] if has_volume_and_local_id else None
+
             thumbnail_source, = (0,) if major < 4 else struct.unpack("<i", buffer.read(4))
 
             try:
@@ -261,77 +270,57 @@ class FileId:
             except ValueError:
                 raise ValueError(f"Unknown thumbnail_source {thumbnail_source} of file_id {file_id}")
 
+            secret = None
+            thumbnail_file_type = None
+            thumbnail_size = ""
+            chat_id = None
+            chat_access_hash = None
+            sticker_set_id = None
+            sticker_set_access_hash = None
+            sticker_set_version = None
+            local_id = None
+
             if thumbnail_source == ThumbnailSource.LEGACY:
-                secret, local_id = struct.unpack("<qi", buffer.read(12))
-
-                return FileId(
-                    major=major,
-                    minor=minor,
-                    file_type=file_type,
-                    dc_id=dc_id,
-                    file_reference=file_reference,
-                    media_id=media_id,
-                    access_hash=access_hash,
-                    volume_id=volume_id,
-                    thumbnail_source=thumbnail_source,
-                    secret=secret,
-                    local_id=local_id
-                )
-
-            if thumbnail_source == ThumbnailSource.THUMBNAIL:
-                thumbnail_file_type, thumbnail_size, local_id = struct.unpack("<iii", buffer.read(12))
+                secret, = struct.unpack("<q", buffer.read(8))
+            elif thumbnail_source == ThumbnailSource.THUMBNAIL:
+                thumbnail_file_type, thumbnail_size = struct.unpack("<ii", buffer.read(8))
                 thumbnail_size = chr(thumbnail_size)
+            elif thumbnail_source in (ThumbnailSource.CHAT_PHOTO_SMALL, ThumbnailSource.CHAT_PHOTO_BIG):
+                chat_id, chat_access_hash = struct.unpack("<qq", buffer.read(16))
+            elif thumbnail_source == ThumbnailSource.STICKER_SET_THUMBNAIL:
+                sticker_set_id, sticker_set_access_hash = struct.unpack("<qq", buffer.read(16))
+            elif thumbnail_source == ThumbnailSource.FULL_LEGACY:
+                volume_id, secret, local_id = struct.unpack("<qqi", buffer.read(20))
+            elif thumbnail_source in (ThumbnailSource.CHAT_PHOTO_SMALL_LEGACY, ThumbnailSource.CHAT_PHOTO_BIG_LEGACY):
+                chat_id, chat_access_hash, volume_id, local_id = struct.unpack("<qqqi", buffer.read(28))
+            elif thumbnail_source == ThumbnailSource.STICKER_SET_THUMBNAIL_LEGACY:
+                sticker_set_id, sticker_set_access_hash, volume_id, local_id = struct.unpack("<qqqi", buffer.read(28))
+            elif thumbnail_source == ThumbnailSource.STICKER_SET_THUMBNAIL_VERSION:
+                sticker_set_id, sticker_set_access_hash, sticker_set_version = struct.unpack("<qqi", buffer.read(20))
 
-                return FileId(
-                    major=major,
-                    minor=minor,
-                    file_type=file_type,
-                    dc_id=dc_id,
-                    file_reference=file_reference,
-                    media_id=media_id,
-                    access_hash=access_hash,
-                    volume_id=volume_id,
-                    thumbnail_source=thumbnail_source,
-                    thumbnail_file_type=thumbnail_file_type,
-                    thumbnail_size=thumbnail_size,
-                    local_id=local_id
-                )
+            if has_volume_and_local_id:
+                local_id, = struct.unpack("<i", buffer.read(4))
 
-            if thumbnail_source in (ThumbnailSource.CHAT_PHOTO_SMALL, ThumbnailSource.CHAT_PHOTO_BIG):
-                chat_id, chat_access_hash, local_id = struct.unpack("<qqi", buffer.read(20))
-
-                return FileId(
-                    major=major,
-                    minor=minor,
-                    file_type=file_type,
-                    dc_id=dc_id,
-                    file_reference=file_reference,
-                    media_id=media_id,
-                    access_hash=access_hash,
-                    volume_id=volume_id,
-                    thumbnail_source=thumbnail_source,
-                    chat_id=chat_id,
-                    chat_access_hash=chat_access_hash,
-                    local_id=local_id
-                )
-
-            if thumbnail_source == ThumbnailSource.STICKER_SET_THUMBNAIL:
-                sticker_set_id, sticker_set_access_hash, local_id = struct.unpack("<qqi", buffer.read(20))
-
-                return FileId(
-                    major=major,
-                    minor=minor,
-                    file_type=file_type,
-                    dc_id=dc_id,
-                    file_reference=file_reference,
-                    media_id=media_id,
-                    access_hash=access_hash,
-                    volume_id=volume_id,
-                    thumbnail_source=thumbnail_source,
-                    sticker_set_id=sticker_set_id,
-                    sticker_set_access_hash=sticker_set_access_hash,
-                    local_id=local_id
-                )
+            return FileId(
+                major=major,
+                minor=minor,
+                file_type=file_type,
+                dc_id=dc_id,
+                file_reference=file_reference,
+                media_id=media_id,
+                access_hash=access_hash,
+                volume_id=volume_id,
+                thumbnail_source=thumbnail_source,
+                thumbnail_file_type=thumbnail_file_type,
+                thumbnail_size=thumbnail_size,
+                secret=secret,
+                chat_id=chat_id,
+                chat_access_hash=chat_access_hash,
+                sticker_set_id=sticker_set_id,
+                sticker_set_access_hash=sticker_set_access_hash,
+                sticker_set_version=sticker_set_version,
+                local_id=local_id
+            )
 
         if file_type in DOCUMENT_TYPES:
             return FileId(
@@ -369,34 +358,67 @@ class FileId:
         buffer.write(struct.pack("<qq", self.media_id, self.access_hash))
 
         if self.file_type in PHOTO_TYPES:
-            buffer.write(struct.pack("<q", self.volume_id))
+            has_volume_and_local_id = minor < 32
+
+            if has_volume_and_local_id:
+                buffer.write(struct.pack("<q", self.volume_id))
 
             if major >= 4:
                 buffer.write(struct.pack("<i", self.thumbnail_source))
 
             if self.thumbnail_source == ThumbnailSource.LEGACY:
-                buffer.write(struct.pack("<qi", self.secret, self.local_id))
+                buffer.write(struct.pack("<q", self.secret))
             elif self.thumbnail_source == ThumbnailSource.THUMBNAIL:
                 buffer.write(struct.pack(
-                    "<iii",
+                    "<ii",
                     self.thumbnail_file_type,
-                    ord(self.thumbnail_size),
-                    self.local_id
+                    ord(self.thumbnail_size)
                 ))
             elif self.thumbnail_source in (ThumbnailSource.CHAT_PHOTO_SMALL, ThumbnailSource.CHAT_PHOTO_BIG):
                 buffer.write(struct.pack(
-                    "<qqi",
+                    "<qq",
                     self.chat_id,
-                    self.chat_access_hash,
-                    self.local_id
+                    self.chat_access_hash
                 ))
             elif self.thumbnail_source == ThumbnailSource.STICKER_SET_THUMBNAIL:
+                buffer.write(struct.pack(
+                    "<qq",
+                    self.sticker_set_id,
+                    self.sticker_set_access_hash
+                ))
+            elif self.thumbnail_source == ThumbnailSource.FULL_LEGACY:
+                buffer.write(struct.pack(
+                    "<qqi",
+                    self.volume_id,
+                    self.secret,
+                    self.local_id
+                ))
+            elif self.thumbnail_source in (ThumbnailSource.CHAT_PHOTO_SMALL_LEGACY, ThumbnailSource.CHAT_PHOTO_BIG_LEGACY):
+                buffer.write(struct.pack(
+                    "<qqqi",
+                    self.chat_id,
+                    self.chat_access_hash,
+                    self.volume_id,
+                    self.local_id
+                ))
+            elif self.thumbnail_source == ThumbnailSource.STICKER_SET_THUMBNAIL_LEGACY:
+                buffer.write(struct.pack(
+                    "<qqqi",
+                    self.sticker_set_id,
+                    self.sticker_set_access_hash,
+                    self.volume_id,
+                    self.local_id
+                ))
+            elif self.thumbnail_source == ThumbnailSource.STICKER_SET_THUMBNAIL_VERSION:
                 buffer.write(struct.pack(
                     "<qqi",
                     self.sticker_set_id,
                     self.sticker_set_access_hash,
-                    self.local_id
+                    self.sticker_set_version
                 ))
+
+            if has_volume_and_local_id:
+                buffer.write(struct.pack("<i", self.local_id))
         elif file_type in DOCUMENT_TYPES:
             buffer.write(struct.pack("<ii", minor, major))
 

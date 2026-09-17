@@ -16,9 +16,48 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+import struct
+
 import pytest
 
-from pyrogram.file_id import FileId, FileUniqueId, FileType, FileUniqueType
+from pyrogram.file_id import (
+    FILE_REFERENCE_FLAG,
+    FileId,
+    FileUniqueId,
+    FileType,
+    FileUniqueType,
+    ThumbnailSource,
+    b64_encode,
+    rle_encode,
+)
+from pyrogram.raw.core import Bytes
+
+DC_ID = 2
+MEDIA_ID = 5399953792058913798
+ACCESS_HASH = 478576178729576621
+FILE_REFERENCE = b"\x01\x02\x03\x04"
+
+VOLUME_ID = 1234567890123456789
+LOCAL_ID = 42
+SECRET = 987654321098765432
+CHAT_ID = -1001234567890
+CHAT_ACCESS_HASH = 1122334455667788990
+STICKER_SET_ID = 2233445566778899001
+STICKER_SET_ACCESS_HASH = 3344556677889900112
+STICKER_SET_VERSION = 7
+
+
+def photo_file_id(*, minor: int, thumbnail_source: int, tail: bytes) -> str:
+    payload = (
+        struct.pack("<ii", FileType.PHOTO | FILE_REFERENCE_FLAG, DC_ID)
+        + Bytes(FILE_REFERENCE)
+        + struct.pack("<qq", MEDIA_ID, ACCESS_HASH)
+        + struct.pack("<i", thumbnail_source)
+        + tail
+        + struct.pack("<bb", minor, 4)
+    )
+
+    return b64_encode(rle_encode(payload))
 
 
 def check(file_id: str, expected_file_type: FileType):
@@ -176,6 +215,272 @@ def test_unknown_thumbnail_source():
 
     with pytest.raises(ValueError, match=r"Unknown thumbnail_source \d+ of file_id \w+"):
         check(unknown, FileType.THUMBNAIL)
+
+
+def test_modern_photo():
+    photo = "AgACAgIAAxkBAAIENGfeY4AfRquwTL2LpDrzqvFMVNt_AAIG9DEbXX3wSq3oI7t_PqQGAQADAgADbQADNgQ"
+
+    decoded = FileId.decode(photo)
+
+    assert decoded.minor == 54
+    assert decoded.thumbnail_source == ThumbnailSource.THUMBNAIL
+    assert decoded.thumbnail_file_type == FileType.PHOTO
+    assert decoded.thumbnail_size == "m"
+    assert decoded.volume_id is None
+    assert decoded.local_id is None
+
+    check(photo, FileType.PHOTO)
+
+
+NEW_LAYOUT_SOURCES = [
+    pytest.param(
+        ThumbnailSource.LEGACY,
+        struct.pack("<q", SECRET),
+        {"secret": SECRET},
+        id="legacy",
+    ),
+    pytest.param(
+        ThumbnailSource.THUMBNAIL,
+        struct.pack("<ii", FileType.PHOTO, ord("m")),
+        {"thumbnail_file_type": FileType.PHOTO, "thumbnail_size": "m"},
+        id="thumbnail",
+    ),
+    pytest.param(
+        ThumbnailSource.CHAT_PHOTO_SMALL,
+        struct.pack("<qq", CHAT_ID, CHAT_ACCESS_HASH),
+        {"chat_id": CHAT_ID, "chat_access_hash": CHAT_ACCESS_HASH},
+        id="chat_photo_small",
+    ),
+    pytest.param(
+        ThumbnailSource.CHAT_PHOTO_BIG,
+        struct.pack("<qq", CHAT_ID, CHAT_ACCESS_HASH),
+        {"chat_id": CHAT_ID, "chat_access_hash": CHAT_ACCESS_HASH},
+        id="chat_photo_big",
+    ),
+    pytest.param(
+        ThumbnailSource.STICKER_SET_THUMBNAIL,
+        struct.pack("<qq", STICKER_SET_ID, STICKER_SET_ACCESS_HASH),
+        {"sticker_set_id": STICKER_SET_ID, "sticker_set_access_hash": STICKER_SET_ACCESS_HASH},
+        id="sticker_set_thumbnail",
+    ),
+    pytest.param(
+        ThumbnailSource.FULL_LEGACY,
+        struct.pack("<qqi", VOLUME_ID, SECRET, LOCAL_ID),
+        {"volume_id": VOLUME_ID, "secret": SECRET, "local_id": LOCAL_ID},
+        id="full_legacy",
+    ),
+    pytest.param(
+        ThumbnailSource.CHAT_PHOTO_SMALL_LEGACY,
+        struct.pack("<qqqi", CHAT_ID, CHAT_ACCESS_HASH, VOLUME_ID, LOCAL_ID),
+        {
+            "chat_id": CHAT_ID,
+            "chat_access_hash": CHAT_ACCESS_HASH,
+            "volume_id": VOLUME_ID,
+            "local_id": LOCAL_ID,
+        },
+        id="chat_photo_small_legacy",
+    ),
+    pytest.param(
+        ThumbnailSource.CHAT_PHOTO_BIG_LEGACY,
+        struct.pack("<qqqi", CHAT_ID, CHAT_ACCESS_HASH, VOLUME_ID, LOCAL_ID),
+        {
+            "chat_id": CHAT_ID,
+            "chat_access_hash": CHAT_ACCESS_HASH,
+            "volume_id": VOLUME_ID,
+            "local_id": LOCAL_ID,
+        },
+        id="chat_photo_big_legacy",
+    ),
+    pytest.param(
+        ThumbnailSource.STICKER_SET_THUMBNAIL_LEGACY,
+        struct.pack("<qqqi", STICKER_SET_ID, STICKER_SET_ACCESS_HASH, VOLUME_ID, LOCAL_ID),
+        {
+            "sticker_set_id": STICKER_SET_ID,
+            "sticker_set_access_hash": STICKER_SET_ACCESS_HASH,
+            "volume_id": VOLUME_ID,
+            "local_id": LOCAL_ID,
+        },
+        id="sticker_set_thumbnail_legacy",
+    ),
+    pytest.param(
+        ThumbnailSource.STICKER_SET_THUMBNAIL_VERSION,
+        struct.pack("<qqi", STICKER_SET_ID, STICKER_SET_ACCESS_HASH, STICKER_SET_VERSION),
+        {
+            "sticker_set_id": STICKER_SET_ID,
+            "sticker_set_access_hash": STICKER_SET_ACCESS_HASH,
+            "sticker_set_version": STICKER_SET_VERSION,
+        },
+        id="sticker_set_thumbnail_version",
+    ),
+]
+
+
+@pytest.mark.parametrize("thumbnail_source, tail, expected", NEW_LAYOUT_SOURCES)
+def test_thumbnail_source_layout_minor_32(thumbnail_source, tail, expected):
+    file_id = photo_file_id(minor=32, thumbnail_source=thumbnail_source, tail=tail)
+
+    decoded = FileId.decode(file_id)
+
+    assert decoded.thumbnail_source == thumbnail_source
+    assert decoded.media_id == MEDIA_ID
+    assert decoded.access_hash == ACCESS_HASH
+    assert decoded.file_reference == FILE_REFERENCE
+
+    assert {name: vars(decoded)[name] for name in expected} == expected
+    assert decoded.encode() == file_id
+
+
+def test_pre_32_photo_layout():
+    payload = (
+        struct.pack("<ii", FileType.PHOTO | FILE_REFERENCE_FLAG, DC_ID)
+        + Bytes(FILE_REFERENCE)
+        + struct.pack("<qq", MEDIA_ID, ACCESS_HASH)
+        + struct.pack("<q", VOLUME_ID)
+        + struct.pack("<i", ThumbnailSource.CHAT_PHOTO_SMALL)
+        + struct.pack("<qq", CHAT_ID, CHAT_ACCESS_HASH)
+        + struct.pack("<i", LOCAL_ID)
+        + struct.pack("<bb", 31, 4)
+    )
+    file_id = b64_encode(rle_encode(payload))
+
+    decoded = FileId.decode(file_id)
+
+    assert decoded.volume_id == VOLUME_ID
+    assert decoded.local_id == LOCAL_ID
+    assert decoded.chat_id == CHAT_ID
+    assert decoded.chat_access_hash == CHAT_ACCESS_HASH
+    assert decoded.encode() == file_id
+
+
+def test_minted_photo_layout():
+    minted = FileId(
+        file_type=FileType.PHOTO,
+        dc_id=DC_ID,
+        media_id=MEDIA_ID,
+        access_hash=ACCESS_HASH,
+        file_reference=FILE_REFERENCE,
+        thumbnail_source=ThumbnailSource.THUMBNAIL,
+        thumbnail_file_type=FileType.PHOTO,
+        thumbnail_size="m",
+        volume_id=0,
+        local_id=0,
+    ).encode()
+
+    decoded = FileId.decode(minted)
+
+    assert decoded.minor == 30
+    assert decoded.volume_id == 0
+    assert decoded.local_id == 0
+    assert decoded.encode() == minted
+
+
+def test_full_legacy_field_order():
+    file_id = photo_file_id(
+        minor=32,
+        thumbnail_source=ThumbnailSource.FULL_LEGACY,
+        tail=struct.pack("<qqi", VOLUME_ID, SECRET, LOCAL_ID),
+    )
+
+    decoded = FileId.decode(file_id)
+
+    assert decoded.volume_id == VOLUME_ID
+    assert decoded.secret == SECRET
+    assert decoded.local_id == LOCAL_ID
+
+
+def test_unknown_thumbnail_source_minor_32():
+    file_id = photo_file_id(minor=32, thumbnail_source=10, tail=struct.pack("<q", SECRET))
+
+    with pytest.raises(ValueError, match=r"Unknown thumbnail_source 10 of file_id \w+"):
+        FileId.decode(file_id)
+
+
+def test_documents_minor_independence():
+    for minor in (30, 32, 54):
+        payload = (
+            struct.pack("<ii", FileType.DOCUMENT | FILE_REFERENCE_FLAG, DC_ID)
+            + Bytes(FILE_REFERENCE)
+            + struct.pack("<qq", MEDIA_ID, ACCESS_HASH)
+            + struct.pack("<bb", minor, 4)
+        )
+        file_id = b64_encode(rle_encode(payload))
+
+        decoded = FileId.decode(file_id)
+
+        assert decoded.file_type == FileType.DOCUMENT
+        assert decoded.media_id == MEDIA_ID
+        assert decoded.access_hash == ACCESS_HASH
+        assert decoded.volume_id is None
+        assert decoded.encode() == file_id
+
+
+EXTREMES = [0, 1, -1, 2 ** 62, -(2 ** 62), 2 ** 63 - 1, -(2 ** 63)]
+SMALL_EXTREMES = [0, 1, -1, 2 ** 31 - 1, -(2 ** 31)]
+
+
+def photo_fields(*, thumbnail_source: ThumbnailSource, big: int, small: int) -> dict:
+    if thumbnail_source == ThumbnailSource.LEGACY:
+        return {"secret": big}
+
+    if thumbnail_source == ThumbnailSource.THUMBNAIL:
+        return {"thumbnail_file_type": FileType.PHOTO, "thumbnail_size": "y"}
+
+    if thumbnail_source in (ThumbnailSource.CHAT_PHOTO_SMALL, ThumbnailSource.CHAT_PHOTO_BIG):
+        return {"chat_id": big, "chat_access_hash": big}
+
+    if thumbnail_source == ThumbnailSource.STICKER_SET_THUMBNAIL:
+        return {"sticker_set_id": big, "sticker_set_access_hash": big}
+
+    if thumbnail_source == ThumbnailSource.FULL_LEGACY:
+        return {"volume_id": big, "secret": big, "local_id": small}
+
+    if thumbnail_source in (
+        ThumbnailSource.CHAT_PHOTO_SMALL_LEGACY,
+        ThumbnailSource.CHAT_PHOTO_BIG_LEGACY
+    ):
+        return {"chat_id": big, "chat_access_hash": big, "volume_id": big, "local_id": small}
+
+    if thumbnail_source == ThumbnailSource.STICKER_SET_THUMBNAIL_LEGACY:
+        return {
+            "sticker_set_id": big,
+            "sticker_set_access_hash": big,
+            "volume_id": big,
+            "local_id": small,
+        }
+
+    return {"sticker_set_id": big, "sticker_set_access_hash": big, "sticker_set_version": small}
+
+
+@pytest.mark.parametrize("thumbnail_source", list(ThumbnailSource))
+def test_thumbnail_sources_roundtrip_extremes(thumbnail_source):
+    for big, small in zip(EXTREMES, SMALL_EXTREMES * 2):
+        minors = [32] if thumbnail_source >= ThumbnailSource.FULL_LEGACY else [30, 32]
+
+        for minor in minors:
+            fields = photo_fields(thumbnail_source=thumbnail_source, big=big, small=small)
+
+            if minor < 32:
+                fields.setdefault("volume_id", big)
+                fields.setdefault("local_id", small)
+
+            file_id = FileId(
+                minor=minor,
+                file_type=FileType.PHOTO,
+                dc_id=DC_ID,
+                media_id=MEDIA_ID,
+                access_hash=ACCESS_HASH,
+                file_reference=FILE_REFERENCE,
+                thumbnail_source=thumbnail_source,
+                **fields,
+            ).encode()
+
+            decoded = FileId.decode(file_id)
+
+            assert decoded.minor == minor
+            assert decoded.thumbnail_source == thumbnail_source
+
+            assert {name: vars(decoded)[name] for name in fields} == fields, thumbnail_source.name
+            assert decoded.encode() == file_id
 
 
 def test_stringify_file_id():
