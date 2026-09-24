@@ -30,7 +30,7 @@ class EditMessageChecklist:
         message_id: int,
         checklist: "types.InputChecklist",
         business_connection_id: Optional[str] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         schedule_date: Optional[datetime] = None,
         repeat_period: Optional[int] = None,
         quick_reply_shortcut: Optional[int] = None,
@@ -56,6 +56,7 @@ class EditMessageChecklist:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
             schedule_date (:py:obj:`~datetime.datetime`, *optional*):
                 New date when the scheduled message will be sent.
@@ -107,7 +108,7 @@ class EditMessageChecklist:
                         others_can_complete=checklist.others_can_mark_tasks_as_done
                     )
                 ),
-                reply_markup=await reply_markup.write(self) if reply_markup else None,
+                reply_markup=await utils.write_edit_reply_markup(self, reply_markup=reply_markup),
             ),
             business_connection_id=business_connection_id
         )

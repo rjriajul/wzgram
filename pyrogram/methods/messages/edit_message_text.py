@@ -22,7 +22,7 @@ class EditMessageText:
         rich_text: Optional[Union[str, "types.InputRichMessage"]] = None,
         rich_text_parse_mode: "enums.ParseMode" = enums.ParseMode.MARKDOWN,
         rich_text_media: Optional[List["types.InputRichMessageMedia"]] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         schedule_date: Optional[datetime] = None,
         repeat_period: Optional[int] = None,
         quick_reply_shortcut: Optional[int] = None,
@@ -76,6 +76,7 @@ class EditMessageText:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An inline keyboard for the message.
+                Pass None to remove the existing reply markup.
 
             schedule_date (:py:obj:`~datetime.datetime`, *optional*):
                 New date when the scheduled message will be sent.
@@ -140,7 +141,7 @@ class EditMessageText:
                     force_small_media=link_preview_options.prefer_small_media,
                     optional=True
                 ) if link_preview_options is not None and link_preview_options.url else None,
-                reply_markup=await reply_markup.write(self) if reply_markup else None,
+                reply_markup=await utils.write_edit_reply_markup(self, reply_markup=reply_markup),
                 **text_params
             ),
             sleep_threshold=60,

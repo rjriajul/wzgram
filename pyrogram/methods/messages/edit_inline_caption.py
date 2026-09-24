@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import pyrogram
 from pyrogram import types, enums
@@ -30,7 +30,7 @@ class EditInlineCaption:
         parse_mode: Optional["enums.ParseMode"] = None,
         caption_entities: Optional[List["types.MessageEntity"]] = None,
         show_caption_above_media: Optional[bool] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         business_connection_id: Optional[str] = None,
     ) -> bool:
         """Edit the caption of inline media messages.
@@ -57,6 +57,7 @@ class EditInlineCaption:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
             business_connection_id (``str``, *optional*):
                 Unique identifier of the business connection.

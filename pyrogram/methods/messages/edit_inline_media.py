@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Optional
+from typing import Optional, Union
 import asyncio
 import io
 import os
@@ -38,7 +38,7 @@ class EditInlineMedia:
         self: "pyrogram.Client",
         inline_message_id: str,
         media: "types.InputMedia",
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         business_connection_id: Optional[str] = None,
     ) -> bool:
         """Edit inline animation, audio, document, photo or video messages.
@@ -58,6 +58,7 @@ class EditInlineMedia:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
             business_connection_id (``str``, *optional*):
                 Unique identifier of the business connection.
@@ -295,7 +296,7 @@ class EditInlineMedia:
                     raw.functions.messages.EditInlineBotMessage(
                         id=unpacked,
                         media=actual_media,
-                        reply_markup=await reply_markup.write(self) if reply_markup else None,
+                        reply_markup=await utils.write_edit_reply_markup(self, reply_markup=reply_markup),
                         **await self.parser.parse(caption, parse_mode)
                     ),
                     business_connection_id

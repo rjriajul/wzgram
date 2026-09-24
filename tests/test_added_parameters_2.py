@@ -1,5 +1,6 @@
 import sys
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -334,3 +335,43 @@ async def test_every_document_block_uploads_what_it_was_given(block, field, kwar
 
     assert getattr(written.blocks[0], field) == 333
     assert [d.id for d in written.documents] == [333]
+
+
+def _reply_markup_on_the_wire(client: FakeClient) -> raw.base.ReplyMarkup | None:
+    """The captured request's `reply_markup`, read back from the bytes it serializes to."""
+    assert client.sent
+    payload = BytesIO(client.sent[0].write()[4:])
+    return raw.functions.messages.EditMessage.read(payload).reply_markup
+
+
+@pytest.mark.asyncio
+async def test_not_passing_a_reply_markup_leaves_the_field_out_of_the_request():
+    client = FakeClient()
+    await pyrogram.Client.edit_message_reply_markup(client, chat_id=7, message_id=11)
+    assert _reply_markup_on_the_wire(client) is None
+
+
+@pytest.mark.asyncio
+async def test_passing_none_sends_an_inline_markup_with_no_rows():
+    client = FakeClient()
+    await pyrogram.Client.edit_message_reply_markup(client, chat_id=7, message_id=11, reply_markup=None)
+    sent = _reply_markup_on_the_wire(client)
+    assert isinstance(sent, raw.types.ReplyInlineMarkup)
+    assert sent.rows == []
+
+
+@pytest.mark.asyncio
+async def test_passing_a_markup_sends_its_buttons():
+    client = FakeClient()
+    await pyrogram.Client.edit_message_reply_markup(
+        client,
+        chat_id=7,
+        message_id=11,
+        reply_markup=types.InlineKeyboardMarkup(
+            [[types.InlineKeyboardButton("New button", callback_data="new_data")]]
+        ),
+    )
+    sent = _reply_markup_on_the_wire(client)
+    assert isinstance(sent, raw.types.ReplyInlineMarkup)
+    assert [button.text for row in sent.rows for button in row.buttons] == ["New button"]
+

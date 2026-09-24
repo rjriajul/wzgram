@@ -30,7 +30,7 @@ class EditEphemeralMessageReplyMarkup:
         chat_id: Union[int, str],
         receiver_id: Union[int, str],
         message_id: int,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         welcome: Optional[bool] = None,
     ) -> Optional["types.Message"]:
         """Edit only the inline keyboard of an ephemeral message.
@@ -49,8 +49,8 @@ class EditEphemeralMessageReplyMarkup:
                 Identifier of the ephemeral message to edit.
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
-                An inline keyboard. Pass nothing to leave the current one unchanged:
-                the RPC omits the field, which the server reads as "no change".
+                An inline keyboard. Pass nothing to leave the current one unchanged,
+                or ``None`` to remove it.
 
             welcome (``bool``, *optional*):
                 Pass True when editing a stored welcome message rather than one that was

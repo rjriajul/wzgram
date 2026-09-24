@@ -34,7 +34,7 @@ class EditMessageCaption:
         rich_text: Optional[Union[str, "types.InputRichMessage"]] = None,
         rich_text_parse_mode: "enums.ParseMode" = enums.ParseMode.MARKDOWN,
         rich_text_media: Optional[List["types.InputRichMessageMedia"]] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         link_preview_options: Optional["types.LinkPreviewOptions"] = None,
         show_caption_above_media: Optional[bool] = None,
         disable_web_page_preview: Optional[bool] = None,
@@ -80,6 +80,7 @@ class EditMessageCaption:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
             link_preview_options (:obj:`~pyrogram.types.LinkPreviewOptions`, *optional*):
                 Link preview options.

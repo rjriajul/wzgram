@@ -30,7 +30,7 @@ class EditMessageReplyMarkup:
         self: "pyrogram.Client",
         chat_id: Union[int, str],
         message_id: int,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         business_connection_id: Optional[str] = None,
         schedule_date: Optional[datetime] = None,
         repeat_period: Optional[int] = None,
@@ -51,6 +51,7 @@ class EditMessageReplyMarkup:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
             schedule_date (:py:obj:`~datetime.datetime`, *optional*):
                 New date when the scheduled message will be sent.
@@ -85,7 +86,7 @@ class EditMessageReplyMarkup:
                 quick_reply_shortcut_id=quick_reply_shortcut,
                 peer=await self.resolve_peer(chat_id),
                 id=message_id,
-                reply_markup=await reply_markup.write(self) if reply_markup else None,
+                reply_markup=await utils.write_edit_reply_markup(self, reply_markup=reply_markup),
             ),
             sleep_threshold=60,
             business_connection_id=business_connection_id

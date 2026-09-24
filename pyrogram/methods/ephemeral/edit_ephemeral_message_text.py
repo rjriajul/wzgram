@@ -41,7 +41,7 @@ class EditEphemeralMessageText:
         rich_text_media: Optional[List["types.InputRichMessageMedia"]] = None,
         rich_message: Optional["types.InputRichMessage"] = None,
         link_preview_options: Optional["types.LinkPreviewOptions"] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         welcome: Optional[bool] = None,
     ) -> Optional["types.Message"]:
         """Edit the text of an ephemeral message.
@@ -93,6 +93,7 @@ class EditEphemeralMessageText:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An inline keyboard.
+                Pass None to remove the existing reply markup.
 
             welcome (``bool``, *optional*):
                 Pass True when editing a stored welcome message rather than one that was

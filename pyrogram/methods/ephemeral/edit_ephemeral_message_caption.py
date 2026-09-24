@@ -34,7 +34,7 @@ class EditEphemeralMessageCaption:
         parse_mode: Optional["enums.ParseMode"] = None,
         caption_entities: Optional[List["types.MessageEntity"]] = None,
         show_caption_above_media: Optional[bool] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         welcome: Optional[bool] = None,
     ) -> Optional["types.Message"]:
         """Edit the caption of an ephemeral media message.
@@ -68,6 +68,7 @@ class EditEphemeralMessageCaption:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An inline keyboard.
+                Pass None to remove the existing reply markup.
 
             welcome (``bool``, *optional*):
                 Pass True when editing a stored welcome message rather than one that was

@@ -9505,7 +9505,7 @@ class Message(Object, Update):
         rich_text_parse_mode: "enums.ParseMode" = enums.ParseMode.MARKDOWN,
         rich_text_media: Optional[List["types.InputRichMessageMedia"]] = None,
         rich_message: Optional["types.InputRichMessage"] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         welcome: Optional[bool] = None,
     ) -> Optional["Message"]:
         """Shortcut for method :obj:`~pyrogram.Client.edit_ephemeral_message_text` will automatically fill method attributes:
@@ -9548,6 +9548,7 @@ class Message(Object, Update):
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
             welcome (``bool``, *optional*):
                 Pass True when editing a stored welcome message rather than one that was delivered once.
@@ -9582,7 +9583,7 @@ class Message(Object, Update):
         parse_mode: Optional["enums.ParseMode"] = None,
         caption_entities: Optional[List["types.MessageEntity"]] = None,
         show_caption_above_media: Optional[bool] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         welcome: Optional[bool] = None,
     ) -> Optional["Message"]:
         """Shortcut for method :obj:`~pyrogram.Client.edit_ephemeral_message_caption` will automatically fill method attributes:
@@ -9612,6 +9613,7 @@ class Message(Object, Update):
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
             welcome (``bool``, *optional*):
                 Pass True when editing a stored welcome message rather than one that was delivered once.
@@ -9638,7 +9640,7 @@ class Message(Object, Update):
     async def edit_ephemeral_media(
         self,
         media: "types.InputMedia",
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         welcome: Optional[bool] = None,
     ) -> Optional["Message"]:
         """Shortcut for method :obj:`~pyrogram.Client.edit_ephemeral_message_media` will automatically fill method attributes:
@@ -9660,6 +9662,7 @@ class Message(Object, Update):
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
             welcome (``bool``, *optional*):
                 Pass True when editing a stored welcome message rather than one that was delivered once.
@@ -9682,7 +9685,7 @@ class Message(Object, Update):
 
     async def edit_ephemeral_reply_markup(
         self,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         welcome: Optional[bool] = None,
     ) -> Optional["Message"]:
         """Shortcut for method :obj:`~pyrogram.Client.edit_ephemeral_message_reply_markup` will automatically fill method attributes:
@@ -9702,7 +9705,7 @@ class Message(Object, Update):
 
         Parameters:
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
-                An InlineKeyboardMarkup object. Pass nothing to remove the current one.
+                An InlineKeyboardMarkup object. Pass None to remove the current one.
 
             welcome (``bool``, *optional*):
                 Pass True when editing a stored welcome message rather than one that was delivered once.
@@ -9871,7 +9874,7 @@ class Message(Object, Update):
         rich_text: Optional[Union[str, "types.InputRichMessage"]] = None,
         rich_text_parse_mode: "enums.ParseMode" = enums.ParseMode.MARKDOWN,
         rich_text_media: Optional[List["types.InputRichMessageMedia"]] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
 
         show_caption_above_media: Optional[bool] = None,
         disable_web_page_preview: Optional[bool] = None,
@@ -9916,6 +9919,7 @@ class Message(Object, Update):
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
         Returns:
             On success, the edited :obj:`~pyrogram.types.Message` is returned.
@@ -9947,7 +9951,7 @@ class Message(Object, Update):
         caption: str,
         parse_mode: Optional["enums.ParseMode"] = None,
         caption_entities: Optional[List["types.MessageEntity"]] = None,
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         show_caption_above_media: Optional[bool] = None
     ) -> "Message":
         """Shortcut for method :obj:`~pyrogram.Client.edit_message_caption` will automatically fill method attributes:
@@ -9973,6 +9977,7 @@ class Message(Object, Update):
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
         Returns:
             On success, the edited :obj:`~pyrogram.types.Message` is returned.
@@ -9994,7 +9999,7 @@ class Message(Object, Update):
     async def edit_media(
         self,
         media: "types.InputMedia",
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object
     ) -> "Message":
         """Shortcut for method :obj:`~pyrogram.Client.edit_message_media` will automatically fill method attributes:
 
@@ -10013,6 +10018,7 @@ class Message(Object, Update):
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
         Returns:
             On success, the edited :obj:`~pyrogram.types.Message` is returned.
@@ -10031,7 +10037,7 @@ class Message(Object, Update):
     async def edit_checklist(
         self,
         checklist: "types.InputChecklist",
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object
     ) -> "Message":
         """Shortcut for method :obj:`~pyrogram.Client.edit_message_checklist` will automatically fill method attributes:
 
@@ -10045,6 +10051,7 @@ class Message(Object, Update):
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
         Returns:
             On success, the edited :obj:`~pyrogram.types.Message` is returned.
@@ -10060,7 +10067,7 @@ class Message(Object, Update):
             reply_markup=reply_markup
         )
 
-    async def edit_reply_markup(self, reply_markup: Optional["types.InlineKeyboardMarkup"] = None) -> "Message":
+    async def edit_reply_markup(self, reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object) -> "Message":
         """Shortcut for method :obj:`~pyrogram.Client.edit_message_reply_markup` will automatically fill method attributes:
 
         * chat_id
@@ -10069,6 +10076,7 @@ class Message(Object, Update):
         Parameters:
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
         Returns:
             On success, if edited message is sent by the bot, the edited

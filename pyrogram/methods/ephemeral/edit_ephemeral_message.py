@@ -19,7 +19,7 @@
 from typing import List, Optional, Union
 
 import pyrogram
-from pyrogram import raw, types
+from pyrogram import raw, types, utils
 
 
 async def edit_ephemeral(
@@ -32,7 +32,7 @@ async def edit_ephemeral(
     entities: Optional[List["raw.base.MessageEntity"]] = None,
     media: Optional["raw.base.InputMedia"] = None,
     rich_message: Optional["raw.base.InputRichMessage"] = None,
-    reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+    reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
     show_caption_above_media: Optional[bool] = None,
     welcome: Optional[bool] = None,
 ) -> Optional["types.Message"]:
@@ -51,7 +51,7 @@ async def edit_ephemeral(
             entities=entities or None,
             media=media,
             rich_message=rich_message,
-            reply_markup=await reply_markup.write(client) if reply_markup else None,
+            reply_markup=await utils.write_edit_reply_markup(client, reply_markup=reply_markup),
             invert_media=show_caption_above_media,
             welcome=welcome,
         )

@@ -303,7 +303,7 @@ class EditMessageMedia:
         chat_id: Union[int, str],
         message_id: int,
         media: "types.InputMedia",
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         file_name: Optional[str] = None,
         business_connection_id: Optional[str] = None,
         show_caption_above_media: Optional[bool] = None,
@@ -330,6 +330,7 @@ class EditMessageMedia:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
+                Pass None to remove the existing reply markup.
 
             file_name (``str``, *optional*):
                 File name of the media to be sent. Not applicable to photos.
@@ -371,7 +372,7 @@ class EditMessageMedia:
                 peer=await self.resolve_peer(chat_id),
                 id=message_id,
                 media=media,
-                reply_markup=await reply_markup.write(self) if reply_markup else None,
+                reply_markup=await utils.write_edit_reply_markup(self, reply_markup=reply_markup),
                 message=message,
                 entities=entities,
                 invert_media=show_caption_above_media if show_caption_above_media is not None else None,

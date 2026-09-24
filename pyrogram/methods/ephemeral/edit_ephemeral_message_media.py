@@ -32,7 +32,7 @@ class EditEphemeralMessageMedia:
         receiver_id: Union[int, str],
         message_id: int,
         media: "types.InputMedia",
-        reply_markup: Optional["types.InlineKeyboardMarkup"] = None,
+        reply_markup: Union["types.InlineKeyboardMarkup", type[object], None] = object,
         welcome: Optional[bool] = None,
     ) -> Optional["types.Message"]:
         """Edit the media of an ephemeral message.
@@ -55,6 +55,7 @@ class EditEphemeralMessageMedia:
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An inline keyboard.
+                Pass None to remove the existing reply markup.
 
             welcome (``bool``, *optional*):
                 Pass True when editing a stored welcome message rather than one that was
