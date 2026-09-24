@@ -217,8 +217,8 @@ class SendVenue:
                     title=title,
                     address=address,
                     provider="foursquare" if foursquare_id or foursquare_type else "",
-                    venue_id=foursquare_id,
-                    venue_type=foursquare_type
+                    venue_id=foursquare_id or "",
+                    venue_type=foursquare_type or ""
                 ),
                 message="",
                 silent=disable_notification if disable_notification is not None else None,
