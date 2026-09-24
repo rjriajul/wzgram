@@ -73,6 +73,9 @@ class RecoverGaps:
         for local_state in states:
             id, local_pts, local_qts, local_date, local_seq = local_state
 
+            if local_pts is None:
+                continue
+
             prev_pts = 0
             stale_attempts = 0
             unusable = False
