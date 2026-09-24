@@ -16,7 +16,7 @@ Telegram shows every logged-in client in **Settings → Devices → Active Sessi
 yours reads:
 
 -   Device Model: ``CPython x.y.z``
--   Application: ``Pyrogram x.y.z``, where x.y.z is the wzgram version
+-   Application: ``wzgram x.y.z``, where x.y.z is the wzgram version
 -   System Version: the platform wzgram detects
 
 Change any of it:

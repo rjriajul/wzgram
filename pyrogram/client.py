@@ -167,7 +167,7 @@ def write_at(fd: int, data: bytes, offset: int) -> None:
 
 
 class Client(Methods):
-    """Pyrogram Client, the main means for interacting with Telegram.
+    """wzgram Client, the main means for interacting with Telegram.
 
     Parameters:
         name (``str``):
@@ -183,7 +183,7 @@ class Client(Methods):
 
         app_version (``str``, *optional*):
             Application version.
-            Defaults to "Pyrogram x.y.z".
+            Defaults to "wzgram x.y.z".
 
         device_model (``str``, *optional*):
             Device model.
@@ -268,7 +268,7 @@ class Client(Methods):
 
         workdir (``str``, *optional*):
             Define a custom working directory.
-            The working directory is the location in the filesystem where Pyrogram will store the session files.
+            The working directory is the location in the filesystem where wzgram will store the session files.
             Defaults to the parent directory of the main script.
 
         plugins (``dict``, *optional*):
@@ -389,7 +389,7 @@ class Client(Methods):
             Defaults to True.
     """
 
-    APP_VERSION = f"Pyrogram {__version__}"
+    APP_VERSION = f"wzgram {__version__}"
     DEVICE_MODEL = f"{platform.python_implementation()} {platform.python_version()}"
     SYSTEM_VERSION = f"{platform.system()} {platform.release()}"
 
@@ -818,7 +818,7 @@ class Client(Methods):
                             # TODO: Call raw.functions.auth.CheckPaidAuth (requires premium payment support)
                             raise Unauthorized(
                                 f"You need to pay {email_sent_code.sent_code.amount}{email_sent_code.sent_code.currency} or purchase premium to continue authorization "
-                                "process, which is currently not supported by Pyrogram."
+                                "process, which is currently not supported by wzgram."
                             )
                 except BadRequest as e:
                     print(e.MESSAGE)
@@ -920,8 +920,8 @@ class Client(Methods):
             try:
                 print(
                     "\x1b[2J\n"
-                    f"Welcome to Pyrogram (version {__version__})\n"
-                    "Pyrogram is free software and comes with ABSOLUTELY NO WARRANTY. Licensed\n"
+                    f"Welcome to wzgram (version {__version__})\n"
+                    "wzgram is free software and comes with ABSOLUTELY NO WARRANTY. Licensed\n"
                     f"under the terms of the {__license__}.\n"
                     "Scan the QR code below to login\n"
                     "Settings -> Privacy and Security -> Active Sessions -> Scan QR Code.",
