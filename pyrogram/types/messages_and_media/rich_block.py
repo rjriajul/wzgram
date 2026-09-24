@@ -162,13 +162,23 @@ class RichBlock(Object):
         if isinstance(rich_block, raw.types.PageBlockList):
             return RichBlockList(
                 items=types.List(
-                    [await types.RichBlockListItem._parse(client, i) for i in rich_block.items]
+                    [
+                        await types.RichBlockListItem._parse(
+                            client, i, photos, documents, users, chats
+                        )
+                        for i in rich_block.items
+                    ]
                 )
             )
         if isinstance(rich_block, raw.types.PageBlockOrderedList):
             return RichBlockList(
                 items=types.List(
-                    [await types.RichBlockListItem._parse(client, i) for i in rich_block.items]
+                    [
+                        await types.RichBlockListItem._parse(
+                            client, i, photos, documents, users, chats
+                        )
+                        for i in rich_block.items
+                    ]
                 )
             )
         if isinstance(rich_block, raw.types.PageBlockBlockquoteBlocks):
@@ -250,7 +260,7 @@ class RichBlock(Object):
             )
         if isinstance(rich_block, raw.types.PageBlockVideo):
             doc = documents.get(rich_block.video_id)
-            if doc is None:
+            if not isinstance(doc, raw.types.Document):
                 return RichBlockUnsupported()
             attributes = {type(i): i for i in doc.attributes}
 
@@ -289,7 +299,7 @@ class RichBlock(Object):
                     )
         if isinstance(rich_block, raw.types.PageBlockAudio):
             doc = documents.get(rich_block.audio_id)
-            if doc is None:
+            if not isinstance(doc, raw.types.Document):
                 return RichBlockUnsupported()
             attributes = {type(i): i for i in doc.attributes}
 
@@ -325,7 +335,7 @@ class RichBlock(Object):
             )
         if isinstance(rich_block, raw.types.PageBlockDocument):
             doc = documents.get(rich_block.document_id)
-            if doc is None:
+            if not isinstance(doc, raw.types.Document):
                 return RichBlockUnsupported()
             attributes = {type(i): i for i in doc.attributes}
 
@@ -507,11 +517,21 @@ class RichBlockListItem(RichBlock):
 
     @staticmethod
     async def _parse(
-        client, list_item: Union["raw.base.PageListItem", "raw.base.PageListOrderedItem"]
-    ):
+        client: "pyrogram.Client",
+        list_item: Union["raw.base.PageListItem", "raw.base.PageListOrderedItem"],
+        photos: Dict[int, "raw.base.Photo"] = {},
+        documents: Dict[int, "raw.base.Document"] = {},
+        users: Dict[int, "raw.base.User"] = {},
+        chats: Dict[int, "raw.base.Chat"] = {},
+    ) -> Optional["RichBlockListItem"]:
         if isinstance(list_item, raw.types.PageListItemBlocks):
             blocks = types.List(
-                [await types.RichBlock._parse(client, block) for block in list_item.blocks]
+                [
+                    await types.RichBlock._parse(
+                        client, block, photos, documents, users, chats
+                    )
+                    for block in list_item.blocks
+                ]
             )
             label = "•"
             has_checkbox = list_item.checkbox
@@ -535,7 +555,12 @@ class RichBlockListItem(RichBlock):
 
         elif isinstance(list_item, raw.types.PageListOrderedItemBlocks):
             blocks = types.List(
-                [await types.RichBlock._parse(client, block) for block in list_item.blocks]
+                [
+                    await types.RichBlock._parse(
+                        client, block, photos, documents, users, chats
+                    )
+                    for block in list_item.blocks
+                ]
             )
             has_checkbox = list_item.checkbox
             is_checked = list_item.checked
