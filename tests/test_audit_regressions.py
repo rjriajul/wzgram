@@ -1,4 +1,5 @@
 import asyncio
+from io import BytesIO
 
 import pytest
 
@@ -3312,3 +3313,49 @@ def test_upload_name_is_a_basename_not_a_local_path(tmp_path):
     assert utils.get_file_name(named, file_name="", fallback="video.mp4") == "clip.mp4"
     assert utils.get_file_name(named, file_name="pinned.mp4", fallback="video.mp4") == "pinned.mp4"
     assert utils.get_file_name(str(path), fallback="video.mp4") == "holiday.jpg"
+
+
+class _PasswordClient:
+    def __init__(self, hint):
+        algo = pyrogram.raw.types.PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow(
+            salt1=b"salt1", salt2=b"salt2", g=3, p=pyrogram.utils.itob((1 << 127) - 1)
+        )
+        self.password = pyrogram.raw.types.account.Password(
+            new_algo=algo,
+            new_secure_algo=pyrogram.raw.types.SecurePasswordKdfAlgoUnknown(),
+            secure_random=b"r",
+            has_password=True,
+            current_algo=algo,
+            srp_B=pyrogram.utils.itob(12345),
+            srp_id=1,
+            hint=hint,
+        )
+        self.sent = None
+
+    async def invoke(self, query):
+        if isinstance(query, pyrogram.raw.functions.account.GetPassword):
+            return self.password
+
+        self.sent = pyrogram.raw.functions.account.UpdatePasswordSettings.read(
+            BytesIO(query.write()[4:])
+        )
+        return True
+
+
+@pytest.mark.parametrize(
+    "stored,passed,expected",
+    [
+        ("old hint", None, "old hint"),
+        (None, None, ""),
+        ("old hint", "new hint", "new hint"),
+        ("old hint", "", ""),
+    ],
+)
+@pytest.mark.asyncio
+async def test_changing_the_password_keeps_the_hint_unless_told_otherwise(stored, passed, expected):
+    client = _PasswordClient(stored)
+
+    kwargs = {} if passed is None else {"new_hint": passed}
+    assert await pyrogram.Client.change_cloud_password(client, "old", "new", **kwargs) is True
+
+    assert client.sent.new_settings.hint == expected

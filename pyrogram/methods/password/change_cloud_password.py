@@ -17,6 +17,7 @@
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+from typing import Optional
 
 import pyrogram
 from pyrogram import raw
@@ -28,7 +29,7 @@ class ChangeCloudPassword:
         self: "pyrogram.Client",
         current_password: str,
         new_password: str,
-        new_hint: str = ""
+        new_hint: Optional[str] = None
     ) -> bool:
         """Change your Two-Step Verification password (Cloud Password) with a new one.
 
@@ -74,7 +75,7 @@ class ChangeCloudPassword:
                 new_settings=raw.types.account.PasswordInputSettings(
                     new_algo=r.new_algo,
                     new_password_hash=new_hash,
-                    hint=new_hint
+                    hint=new_hint if new_hint is not None else r.hint or ""
                 )
             )
         )
