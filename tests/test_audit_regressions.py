@@ -3836,12 +3836,12 @@ async def test_an_ephemeral_reply_to_an_ephemeral_message_goes_to_the_other_side
 
 
 async def test_an_ephemeral_message_keeps_a_receiver_missing_from_the_users():
-    from unittest.mock import Mock
+    from unittest.mock import MagicMock
 
     from pyrogram import raw, types
 
     message = await types.Message._parse(
-        Mock(),
+        MagicMock(),
         raw.types.EphemeralMessage(
             id=3,
             from_id=raw.types.PeerUser(user_id=5),
@@ -3952,7 +3952,7 @@ def _ephemeral_media_cases():
 
 @pytest.mark.parametrize("kind", list(_ephemeral_media_cases()))
 async def test_an_ephemeral_message_reads_its_media_like_an_ordinary_one(kind):
-    from unittest.mock import MagicMock, Mock
+    from unittest.mock import MagicMock
 
     from pyrogram import raw, types
 
@@ -3962,7 +3962,7 @@ async def test_an_ephemeral_message_reads_its_media_like_an_ordinary_one(kind):
         7: raw.types.User(id=7, first_name="u", usernames=[], restriction_reason=[]),
     }
 
-    ephemeral = await types.Message._parse(Mock(), raw.types.EphemeralMessage(
+    ephemeral = await types.Message._parse(MagicMock(), raw.types.EphemeralMessage(
         id=3, from_id=raw.types.PeerUser(user_id=5), receiver_id=7, date=0,
         message="cap", out=True, media=media,
     ), dict(users), {})
@@ -3982,11 +3982,11 @@ async def test_an_ephemeral_message_reads_its_media_like_an_ordinary_one(kind):
 
 
 async def test_an_ephemeral_message_without_media_keeps_its_text():
-    from unittest.mock import Mock
+    from unittest.mock import MagicMock
 
     from pyrogram import raw, types
 
-    message = await types.Message._parse(Mock(), raw.types.EphemeralMessage(
+    message = await types.Message._parse(MagicMock(), raw.types.EphemeralMessage(
         id=3, from_id=raw.types.PeerUser(user_id=5), receiver_id=7, date=0, message="hi", out=True,
     ), {5: raw.types.User(id=5, first_name="b", usernames=[], restriction_reason=[])}, {})
 
@@ -4495,3 +4495,207 @@ def test_excluding_a_plugin_handler_removes_it(tmp_path, monkeypatch):
 
     assert [h.callback.__name__ for h, _ in added] == ["ping"]
     assert removed == added
+
+
+@pytest.mark.parametrize("name", [n for n in _EPHEMERAL_SHORTCUTS if n.startswith("reply")])
+@pytest.mark.parametrize("is_bot, deadline", [(True, 1700000013), (False, None)])
+async def test_a_bot_reply_to_an_ephemeral_message_carries_the_quote_deadline(name, is_bot, deadline):
+    import datetime
+
+    message = _shortcut_message(True)
+    message.date = datetime.datetime.fromtimestamp(1700000000)
+    message._client.me = pyrogram.types.User(id=1, is_bot=is_bot)
+
+    kwargs = await _call_shortcut(message, name)
+
+    assert kwargs["ephemeral_message_parameters"].receiver_user_id == 5
+    assert kwargs["reply_parameters"].ephemeral_message_id == 11
+    assert kwargs["reply_parameters"]._ephemeral_quote_deadline == deadline
+
+
+@pytest.mark.parametrize("now, thread, expected", [
+    (1700000012, None, ("ephemeral", 11)),
+    (1700000013, None, None),
+    (1700000013, 3, ("thread", 3)),
+    (1800000000, None, None),
+])
+async def test_an_ephemeral_quote_is_dropped_once_its_deadline_passes(now, thread, expected):
+    from types import SimpleNamespace
+
+    from pyrogram import raw, types, utils
+
+    parameters = types.ReplyParameters(ephemeral_message_id=11)
+    parameters._ephemeral_quote_deadline = 1700000013
+
+    reply_to = await utils.get_reply_to(SimpleNamespace(server_time=now), parameters, thread)
+
+    if expected is None:
+        assert reply_to is None
+    elif expected[0] == "ephemeral":
+        assert isinstance(reply_to, raw.types.InputReplyToEphemeralMessage) and reply_to.id == 11
+    else:
+        assert isinstance(reply_to, raw.types.InputReplyToMessage) and reply_to.reply_to_msg_id == 3
+
+
+async def test_an_ephemeral_quote_given_by_hand_is_always_sent():
+    from types import SimpleNamespace
+
+    from pyrogram import raw, types, utils
+
+    reply_to = await utils.get_reply_to(
+        SimpleNamespace(server_time=1800000000), types.ReplyParameters(ephemeral_message_id=11)
+    )
+
+    assert isinstance(reply_to, raw.types.InputReplyToEphemeralMessage)
+
+
+def test_the_quote_deadline_is_not_part_of_the_reply_parameters_seen_by_users():
+    from pyrogram import types
+
+    parameters = types.ReplyParameters(ephemeral_message_id=11)
+    parameters._ephemeral_quote_deadline = 5
+
+    assert parameters == types.ReplyParameters(ephemeral_message_id=11)
+    assert "deadline" not in repr(parameters) and "deadline" not in str(parameters)
+
+
+def _ephemeral_client(cached=()):
+    from unittest.mock import AsyncMock, MagicMock
+
+    client = MagicMock()
+    client.message_cache = pyrogram.client.Cache(10)
+    client.topic_cache = pyrogram.client.Cache(10)
+    client.fetch_replies = True
+    client.fetch_topics = True
+    client.me = pyrogram.types.User(id=7, is_bot=False)
+    client.get_messages = AsyncMock(return_value="fetched")
+    client.get_forum_topics_by_id = AsyncMock(return_value=None)
+
+    for key, value in cached:
+        client.message_cache[key] = value
+
+    return client
+
+
+def _raw_ephemeral(reply_to=None, sender=5, receiver=7, message_id=900, top_msg_id=None):
+    from pyrogram import raw
+
+    return raw.types.EphemeralMessage(
+        id=message_id, from_id=raw.types.PeerUser(user_id=sender), receiver_id=receiver, date=0,
+        message="hi", peer_id=raw.types.PeerChannel(channel_id=100), reply_to=reply_to,
+        top_msg_id=top_msg_id,
+    )
+
+
+def _ephemeral_parties(forum=False):
+    from pyrogram import raw
+
+    users = {
+        5: raw.types.User(id=5, first_name="a", usernames=[], restriction_reason=[]),
+        7: raw.types.User(id=7, first_name="b", usernames=[], restriction_reason=[]),
+    }
+    chats = {100: raw.types.Channel(
+        id=100, title="g", photo=raw.types.ChatPhotoEmpty(), date=0, megagroup=True, forum=forum,
+        access_hash=1, usernames=[], restriction_reason=[],
+    )}
+
+    return users, chats
+
+
+async def test_an_ephemeral_reply_to_an_ordinary_message_fetches_that_message():
+    from pyrogram import raw, types
+
+    client = _ephemeral_client()
+    users, chats = _ephemeral_parties()
+
+    message = await types.Message._parse(
+        client, _raw_ephemeral(raw.types.MessageReplyHeader(reply_to_msg_id=1099)), users, chats
+    )
+
+    assert message.reply_to_message_id == 1099
+    assert message.reply_to_message == "fetched"
+    assert client.get_messages.await_args.kwargs == {"replies": 0, "chat_id": -1000000000100, "message_ids": 1099}
+
+
+async def test_an_ephemeral_reply_to_an_ephemeral_message_finds_it_when_it_is_known():
+    from pyrogram import raw, types
+
+    client = _ephemeral_client()
+    users, chats = _ephemeral_parties()
+
+    sent = await types.Message._parse(client, _raw_ephemeral(sender=7, receiver=5, message_id=110), users, chats)
+    reply = await types.Message._parse(client, _raw_ephemeral(
+        raw.types.MessageReplyHeader(reply_to_msg_id=110, reply_to_ephemeral=True)
+    ), users, chats)
+
+    assert reply.reply_to_message is sent
+    assert reply.reply_to_message_id is None
+    client.get_messages.assert_not_awaited()
+
+
+@pytest.mark.parametrize("sender, receiver", [(5, 7), (7, 9)])
+async def test_an_ephemeral_reply_is_not_matched_to_a_message_between_other_users(sender, receiver):
+    from pyrogram import raw, types
+
+    client = _ephemeral_client()
+    users, chats = _ephemeral_parties()
+
+    await types.Message._parse(client, _raw_ephemeral(sender=sender, receiver=receiver, message_id=110), users, chats)
+    reply = await types.Message._parse(client, _raw_ephemeral(
+        raw.types.MessageReplyHeader(reply_to_msg_id=110, reply_to_ephemeral=True)
+    ), users, chats)
+
+    assert reply.reply_to_message is None
+    client.get_messages.assert_not_awaited()
+
+
+async def test_an_ephemeral_message_is_cached_apart_from_ordinary_messages():
+    from pyrogram import types
+
+    client = _ephemeral_client()
+    users, chats = _ephemeral_parties()
+
+    message = await types.Message._parse(client, _raw_ephemeral(message_id=42), users, chats)
+
+    assert client.message_cache[(-1000000000100, "ephemeral", 42)] is message
+    assert client.message_cache[(-1000000000100, 42)] is None
+
+
+async def test_an_ephemeral_message_in_a_forum_reads_its_topic():
+    from pyrogram import types
+
+    client = _ephemeral_client()
+    users, chats = _ephemeral_parties(forum=True)
+    topic = types.ForumTopic(id=33, title="t")
+    client.topic_cache[(-1000000000100, 33)] = topic
+
+    message = await types.Message._parse(client, _raw_ephemeral(top_msg_id=33), users, chats)
+
+    assert message.message_thread_id == 33
+    assert message.topic is topic
+    assert message.is_topic_message is True
+
+
+async def test_an_ephemeral_message_in_the_general_topic_is_not_a_topic_message():
+    from pyrogram import types
+
+    client = _ephemeral_client()
+    users, chats = _ephemeral_parties(forum=True)
+    general = types.ForumTopic(id=1, title="General")
+    client.topic_cache[(-1000000000100, 1)] = general
+
+    message = await types.Message._parse(client, _raw_ephemeral(), users, chats)
+
+    assert message.topic is general
+    assert not message.is_topic_message
+
+
+async def test_an_ephemeral_message_outside_a_forum_is_not_a_topic_message():
+    from pyrogram import types
+
+    client = _ephemeral_client()
+    users, chats = _ephemeral_parties()
+
+    message = await types.Message._parse(client, _raw_ephemeral(top_msg_id=33), users, chats)
+
+    assert message.topic is None and not message.is_topic_message

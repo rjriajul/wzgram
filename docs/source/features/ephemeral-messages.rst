@@ -244,6 +244,16 @@ message:
 
 A reply quotes the message when it came from the other side. Telegram refuses a quote of an
 ephemeral message you sent yourself, so a reply to one of those is sent without the quote.
+A bot may quote an ephemeral message only within 15 seconds of it being sent. A bot's reply
+that is sent after 13 of them — counting any time spent uploading its media — goes out
+without the quote, in the same topic, rather than be refused with ``REPLY_TO_INVALID``. A
+user account is not held to that window, and a quote passed by hand in ``reply_parameters``
+is always sent as given.
+
+An ephemeral message that replies to another one fills ``reply_to_message``. An ordinary
+message is fetched like the target of any reply. An ephemeral one cannot be fetched again,
+so it is set only when this client has seen it — sent it, or received it — and is left empty
+otherwise, as in the Bot API. In a forum, ``topic`` is filled in as for an ordinary message.
 
 Polls, dice, games, invoices, paid media, checklists, media groups and inline bot results
 cannot be ephemeral: Telegram refuses them in ``ephemeral.sendMessage`` or strips them from it.

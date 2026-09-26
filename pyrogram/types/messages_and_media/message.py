@@ -42,6 +42,8 @@ from ..update import Update
 
 log = logging.getLogger(__name__)
 
+EPHEMERAL_QUOTE_SECONDS = 13
+
 
 class Str(str):
     """A message text or caption, indexed the way Telegram counts it.
@@ -1779,21 +1781,7 @@ class Message(Object, Update):
                 client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
 
         if not parsed_message.topic and parsed_message.chat.is_forum:
-            parsed_topic = client.topic_cache[(parsed_message.chat.id, parsed_message.message_thread_id or 1)]
-
-            if parsed_topic:
-                parsed_message.topic = parsed_topic
-            elif client.fetch_topics and client.me and not client.me.is_bot:
-                try:
-                    parsed_message.topic = await client.get_forum_topics_by_id(
-                        chat_id=parsed_message.chat.id,
-                        topic_ids=parsed_message.message_thread_id or 1
-                    )
-
-                    if parsed_message.topic:
-                        client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
-                except (ChannelPrivate, ChannelForumMissing):
-                    pass
+            await Message._parse_forum_topic(client, parsed_message)
 
         if chat.is_direct_messages and message.saved_peer_id:
             parsed_message.direct_messages_topic_id = message.saved_peer_id.user_id
@@ -1818,6 +1806,24 @@ class Message(Object, Update):
             client.message_cache[(parsed_message.chat.id, parsed_message.id)] = parsed_message
 
         return parsed_message
+
+    @staticmethod
+    async def _parse_forum_topic(client: "pyrogram.Client", parsed_message: "Message"):
+        parsed_topic = client.topic_cache[(parsed_message.chat.id, parsed_message.message_thread_id or 1)]
+
+        if parsed_topic:
+            parsed_message.topic = parsed_topic
+        elif client.fetch_topics and client.me and not client.me.is_bot:
+            try:
+                parsed_message.topic = await client.get_forum_topics_by_id(
+                    chat_id=parsed_message.chat.id,
+                    topic_ids=parsed_message.message_thread_id or 1
+                )
+
+                if parsed_message.topic:
+                    client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
+            except (ChannelPrivate, ChannelForumMissing):
+                pass
 
     @staticmethod
     async def _parse_media(
@@ -2012,7 +2018,23 @@ class Message(Object, Update):
         business_connection_id: Optional[str] = None,
         raw_reply_to_message: Optional["raw.base.Message"] = None
     ):
-        if isinstance(message.reply_to, raw.types.MessageReplyHeader):
+        if isinstance(message.reply_to, raw.types.MessageReplyHeader) and message.reply_to.reply_to_ephemeral:
+            if replies:
+                replied = client.message_cache[
+                    (parsed_message.chat.id, "ephemeral", message.reply_to.reply_to_msg_id)
+                ]
+
+                if (
+                    replied
+                    and replied.receiver_user
+                    and replied.from_user
+                    and parsed_message.from_user
+                    and parsed_message.receiver_user
+                    and replied.receiver_user.id == parsed_message.from_user.id
+                    and replied.from_user.id == parsed_message.receiver_user.id
+                ):
+                    parsed_message.reply_to_message = replied
+        elif isinstance(message.reply_to, raw.types.MessageReplyHeader):
             parsed_message.reply_to_message_id = message.reply_to.reply_to_msg_id
             parsed_message.reply_to_top_message_id = message.reply_to.reply_to_top_id
             parsed_message.reply_to_checklist_task_id = message.reply_to.todo_item_id
@@ -2022,6 +2044,9 @@ class Message(Object, Update):
                 if message.reply_to.reply_to_peer_id:
                     key = (utils.get_peer_id(message.reply_to.reply_to_peer_id), message.reply_to.reply_to_msg_id)
                     reply_to_params = {"chat_id": key[0], 'message_ids': key[1]}
+                elif isinstance(message, raw.types.EphemeralMessage):
+                    key = (parsed_message.chat.id, parsed_message.reply_to_message_id)
+                    reply_to_params = {"chat_id": key[0], "message_ids": key[1]}
                 else:
                     key = (parsed_message.chat.id, parsed_message.reply_to_message_id)
                     reply_to_params = {'chat_id': key[0], 'reply_to_message_ids': message.id}
@@ -2162,7 +2187,7 @@ class Message(Object, Update):
             )
             is_caption = media is not None and media_fields["web_page"] is None
 
-            return Message(
+            parsed_message = Message(
                 id=message.id,
                 from_user=from_user,
                 chat=chat,
@@ -2192,6 +2217,29 @@ class Message(Object, Update):
                 client=client,
                 **media_fields
             )
+
+            if chat is None:
+                return parsed_message
+
+            if message.reply_to:
+                parsed_message = await types.Message.__parse_reply(
+                    client=client,
+                    parsed_message=parsed_message,
+                    message=message,
+                    users=users,
+                    chats=chats,
+                    replies=replies,
+                )
+
+            if chat.is_forum and message.top_msg_id:
+                parsed_message.topic_message = True
+
+            if not parsed_message.topic and chat.is_forum:
+                await Message._parse_forum_topic(client, parsed_message)
+
+            client.message_cache[(chat.id, "ephemeral", message.id)] = parsed_message
+
+            return parsed_message
 
     @property
     def link(self) -> str:
@@ -9624,6 +9672,14 @@ class Message(Object, Update):
 
         return types.EphemeralMessageParameters(receiver_user_id=self._reply_receiver_id())
 
+    def _ephemeral_quote_deadline(self) -> Optional[int]:
+        me = getattr(self._client, "me", None)
+
+        if getattr(me, "is_bot", None) is not True or self.date is None:
+            return None
+
+        return utils.datetime_to_timestamp(self.date) + EPHEMERAL_QUOTE_SECONDS
+
     def _reply_parameters(
         self,
         message_id: Optional[int] = None,
@@ -9634,7 +9690,10 @@ class Message(Object, Update):
             if self.outgoing:
                 return None
 
-            return types.ReplyParameters(ephemeral_message_id=self.ephemeral_message_id)
+            parameters = types.ReplyParameters(ephemeral_message_id=self.ephemeral_message_id)
+            parameters._ephemeral_quote_deadline = self._ephemeral_quote_deadline()
+
+            return parameters
 
         return types.ReplyParameters(
             message_id=self.id if message_id is None else message_id,

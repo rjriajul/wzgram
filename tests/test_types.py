@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
@@ -1246,7 +1246,7 @@ class TestEphemeralMessageWithoutAPeer:
 
     async def test_an_outgoing_message_is_a_chat_with_the_receiver(self):
         parsed = await types.Message._parse(
-            Mock(), _ephemeral_message(out=True), self.users, {}
+            MagicMock(), _ephemeral_message(out=True), self.users, {}
         )
 
         assert parsed.chat is not None, "a message with no peer still has a counterpart"
@@ -1255,7 +1255,7 @@ class TestEphemeralMessageWithoutAPeer:
 
     async def test_an_incoming_message_is_a_chat_with_the_sender(self):
         parsed = await types.Message._parse(
-            Mock(), _ephemeral_message(out=False), self.users, {}
+            MagicMock(), _ephemeral_message(out=False), self.users, {}
         )
 
         assert parsed.chat is not None
@@ -1263,7 +1263,7 @@ class TestEphemeralMessageWithoutAPeer:
 
     async def test_a_message_with_a_peer_still_uses_it(self):
         message = _ephemeral_message(out=True, peer_id=raw.types.PeerUser(user_id=1))
-        parsed = await types.Message._parse(Mock(), message, self.users, {})
+        parsed = await types.Message._parse(MagicMock(), message, self.users, {})
 
         assert parsed.chat.id == 1
 
@@ -1291,7 +1291,7 @@ class TestEphemeralCallbackQuery:
         )
         users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Receiver")}
 
-        parsed = await types.CallbackQuery._parse(Mock(), update, users, {})
+        parsed = await types.CallbackQuery._parse(MagicMock(), update, users, {})
 
         assert parsed.id == "5"
         assert parsed.data == "payload"

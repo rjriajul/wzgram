@@ -474,9 +474,12 @@ async def get_reply_to(
     """Get InputReply for reply_to argument"""
     if reply_parameters:
         if reply_parameters.ephemeral_message_id:
-            return raw.types.InputReplyToEphemeralMessage(
-                id=reply_parameters.ephemeral_message_id
-            )
+            deadline = getattr(reply_parameters, "_ephemeral_quote_deadline", None)
+
+            if deadline is None or client.server_time < deadline:
+                return raw.types.InputReplyToEphemeralMessage(
+                    id=reply_parameters.ephemeral_message_id
+                )
 
         if reply_parameters.chat_id and reply_parameters.story_id:
             return raw.types.InputReplyToStory(
