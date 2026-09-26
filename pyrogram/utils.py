@@ -313,12 +313,22 @@ def parse_deleted_messages(client, update, users, chats) -> List["types.Message"
                 )
 
     parsed_messages = []
+    ephemeral = isinstance(update, raw.types.UpdateDeleteEphemeralMessages)
 
     for message in messages:
+        known = (
+            client.message_cache.pop((chat.id, "ephemeral", message))
+            if ephemeral and chat is not None
+            else None
+        )
+
         parsed_messages.append(
             types.Message(
                 id=message,
                 chat=chat,
+                ephemeral_message_id=message if ephemeral else None,
+                from_user=known.from_user if known else None,
+                receiver_user=known.receiver_user if known else None,
                 business_connection_id=getattr(update, "connection_id", None),
                 client=client
             )

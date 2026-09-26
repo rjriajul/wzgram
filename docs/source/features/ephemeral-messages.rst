@@ -274,6 +274,11 @@ Deleting one
 
 The receiver has to be named again, because the message only ever existed for them.
 
+A deleted ephemeral message reaches :meth:`~pyrogram.Client.on_deleted_messages` with
+``is_ephemeral`` set and its id in ``ephemeral_message_id``, so it is not mistaken for the
+chat message that happens to have the same id. Its sender and receiver are filled in when
+this client saw the message.
+
 Gotchas
 -------
 

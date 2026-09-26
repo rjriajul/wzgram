@@ -4699,3 +4699,34 @@ async def test_an_ephemeral_message_outside_a_forum_is_not_a_topic_message():
     message = await types.Message._parse(client, _raw_ephemeral(top_msg_id=33), users, chats)
 
     assert message.topic is None and not message.is_topic_message
+
+
+async def test_a_deleted_ephemeral_message_is_reported_as_ephemeral():
+    from pyrogram import raw, types, utils
+
+    client = _ephemeral_client()
+    users, chats = _ephemeral_parties()
+    sent = await types.Message._parse(client, _raw_ephemeral(sender=7, receiver=5, message_id=86), users, chats)
+
+    deleted = utils.parse_deleted_messages(client, raw.types.UpdateDeleteEphemeralMessages(
+        peer=raw.types.PeerChannel(channel_id=100), ids=[86, 87]
+    ), users, chats)
+
+    assert [(m.id, m.ephemeral_message_id, m.is_ephemeral) for m in deleted] == [(86, 86, True), (87, 87, True)]
+    assert deleted[0].chat.id == -1000000000100
+    assert (deleted[0].from_user.id, deleted[0].receiver_user.id) == (sent.from_user.id, sent.receiver_user.id)
+    assert deleted[1].from_user is None and deleted[1].receiver_user is None
+    assert client.message_cache[(-1000000000100, "ephemeral", 86)] is None
+
+
+def test_a_deleted_ordinary_message_is_not_reported_as_ephemeral():
+    from pyrogram import raw, utils
+
+    client = _ephemeral_client()
+    users, chats = _ephemeral_parties()
+
+    deleted = utils.parse_deleted_messages(client, raw.types.UpdateDeleteChannelMessages(
+        channel_id=100, messages=[86], pts=1, pts_count=1
+    ), users, chats)
+
+    assert [(m.id, m.is_ephemeral) for m in deleted] == [(86, False)]

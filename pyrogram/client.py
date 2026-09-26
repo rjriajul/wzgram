@@ -2333,6 +2333,9 @@ class Cache:
         value = self.__getitem__(key)
         return value if value is not None else default
 
+    def pop(self, key, default=None):
+        return self.store.pop(key, default)
+
     def __setitem__(self, key, value):
         if key in self.store:
             del self.store[key]
