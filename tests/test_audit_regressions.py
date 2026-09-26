@@ -4386,3 +4386,112 @@ async def test_start_recovers_on_its_own_only_when_updates_are_not_skipped(skip_
     await dispatcher.stop()
 
     assert bool(recoveries) is not skip_updates
+
+
+_PLUGIN_SOURCE = (
+    "import logging, logging.handlers\n"
+    "from pyrogram import Client, filters\n"
+    "\n"
+    "log = logging.getLogger('plugin_under_test')\n"
+    "log.addHandler(logging.NullHandler())\n"
+    "\n"
+    "class Mongoish:\n"
+    "    def __getattr__(self, name):\n"
+    "        return Mongoish()\n"
+    "\n"
+    "class Lazy:\n"
+    "    @property\n"
+    "    def handlers(self):\n"
+    "        raise RuntimeError('settings are not configured')\n"
+    "\n"
+    "db = Mongoish()\n"
+    "settings = Lazy()\n"
+    "pairs_of_something_else = type('P', (), {'handlers': [('a', 1)]})()\n"
+    "\n"
+    "@Client.on_message(filters.command('ping'))\n"
+    "async def ping(client, message):\n"
+    "    pass\n"
+    "\n"
+    "@Client.on_message(filters.command('cfg'), group='2')\n"
+    "async def from_config(client, message):\n"
+    "    pass\n"
+)
+
+
+def _plugin_client(tmp_path, monkeypatch, name, plugins, cls=None):
+    package = tmp_path / name
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "bot.py").write_text(_PLUGIN_SOURCE, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    return (cls or pyrogram.Client)(name, in_memory=True, plugins=dict(plugins, root=name))
+
+
+@pytest.mark.parametrize("package, include", [
+    ("badgroup_scan", None),
+    ("badgroup_module", ["bot"]),
+    ("badgroup_named", ["bot ping from_config"]),
+])
+def test_a_plugin_handler_with_a_bad_group_is_reported(tmp_path, monkeypatch, caplog, package, include):
+    plugins = {"include": include} if include else {}
+    client = _plugin_client(tmp_path, monkeypatch, package, plugins)
+    added = []
+    client.add_handler = lambda handler, group=0: added.append((handler.callback.__name__, group))
+
+    with caplog.at_level("WARNING", logger="pyrogram.client"):
+        client.load_plugins()
+
+    assert added == [("ping", 0)]
+    assert any("from_config" in r.getMessage() and "'2'" in r.getMessage() for r in caplog.records)
+
+
+def test_objects_that_only_look_like_plugin_handlers_are_passed_over(tmp_path, monkeypatch, caplog):
+    client = _plugin_client(tmp_path, monkeypatch, "lookalikes", {})
+    added = []
+    client.add_handler = lambda handler, group=0: added.append(handler.callback.__name__)
+
+    with caplog.at_level("WARNING", logger="pyrogram.client"):
+        client.load_plugins()
+
+    assert added == ["ping"]
+    assert not any(
+        word in r.getMessage() for r in caplog.records for word in ("log", "db", "settings", "pairs_of")
+    )
+
+
+def test_an_error_while_registering_a_plugin_handler_is_raised(tmp_path, monkeypatch):
+    class Strict(pyrogram.Client):
+        def add_handler(self, handler, group=0):
+            raise ValueError("refused")
+
+    for index, include in enumerate((None, ["bot ping"])):
+        plugins = {"include": include} if include else {}
+        client = _plugin_client(tmp_path, monkeypatch, f"strict{index}", plugins, Strict)
+
+        with pytest.raises(ValueError, match="refused"):
+            client.load_plugins()
+
+
+def test_a_named_plugin_object_that_is_not_a_handler_is_still_reported(tmp_path, monkeypatch, caplog):
+    client = _plugin_client(tmp_path, monkeypatch, "named", {"include": ["bot ping db missing"]})
+    client.add_handler = lambda handler, group=0: None
+
+    with caplog.at_level("WARNING", logger="pyrogram.client"):
+        client.load_plugins()
+
+    warned = " ".join(r.getMessage() for r in caplog.records)
+    assert '"db"' in warned and '"missing"' in warned and '"ping"' not in warned
+
+
+def test_excluding_a_plugin_handler_removes_it(tmp_path, monkeypatch):
+    client = _plugin_client(tmp_path, monkeypatch, "excluded", {"exclude": ["bot ping"]})
+    added, removed = [], []
+    client.add_handler = lambda handler, group=0: added.append((handler, group))
+    client.remove_handler = lambda handler, group=0: removed.append((handler, group))
+
+    client.load_plugins()
+
+    assert [h.callback.__name__ for h, _ in added] == ["ping"]
+    assert removed == added

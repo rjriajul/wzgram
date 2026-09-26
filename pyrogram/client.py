@@ -37,7 +37,7 @@ from importlib import import_module
 from io import BytesIO, StringIO
 from mimetypes import MimeTypes
 from pathlib import Path
-from typing import AsyncGenerator, Callable, List, Optional, Type, Union
+from typing import Any, AsyncGenerator, Callable, List, Optional, Type, Union
 
 import pyrogram
 from pyrogram import __license__, __version__, enums, raw, utils
@@ -76,6 +76,25 @@ from .parser import Parser
 from .session.internals import MsgId
 
 log = logging.getLogger(__name__)
+
+
+def _plugin_handlers(target: Any) -> Optional[List[tuple]]:
+    try:
+        handlers = target.handlers
+
+        if not isinstance(handlers, (list, tuple)):
+            return None
+
+        pairs = list(handlers)
+    except Exception:
+        return None
+
+    for pair in pairs:
+        if not (isinstance(pair, (tuple, list)) and len(pair) == 2 and isinstance(pair[0], Handler)):
+            return None
+
+    return pairs
+
 
 _handler_executor: Optional[ThreadPoolExecutor] = None
 
@@ -1314,19 +1333,19 @@ class Client(Methods):
                     module_path = '.'.join(path.parent.parts + (path.stem,))
                     module = import_module(module_path)
 
-                    for name in vars(module).keys():
-                        # noinspection PyBroadException
-                        try:
-                            for handler, group in getattr(module, name).handlers:
-                                if isinstance(handler, Handler) and isinstance(group, int):
-                                    self.add_handler(handler, group)
+                    for name in list(vars(module)):
+                        for handler, group in _plugin_handlers(getattr(module, name)) or ():
+                            if not isinstance(group, int):
+                                log.warning('[%s] [LOAD] Ignoring %s("%s") from "%s": the group must be an int, got %r',
+                                            self.name, type(handler).__name__, name, module_path, group)
+                                continue
 
-                                    log.info('[{}] [LOAD] {}("{}") in group {} from "{}"'.format(
-                                        self.name, type(handler).__name__, name, group, module_path))
+                            self.add_handler(handler, group)
 
-                                    count += 1
-                        except Exception:
-                            pass
+                            log.info('[{}] [LOAD] {}("{}") in group {} from "{}"'.format(
+                                self.name, type(handler).__name__, name, group, module_path))
+
+                            count += 1
             else:
                 for path, handlers in include:
                     module_path = root + "." + path
@@ -1346,21 +1365,27 @@ class Client(Methods):
                         handlers = vars(module).keys()
                         warn_non_existent_functions = False
 
-                    for name in handlers:
-                        # noinspection PyBroadException
-                        try:
-                            for handler, group in getattr(module, name).handlers:
-                                if isinstance(handler, Handler) and isinstance(group, int):
-                                    self.add_handler(handler, group)
+                    for name in list(handlers):
+                        pairs = _plugin_handlers(getattr(module, name, None))
 
-                                    log.info('[{}] [LOAD] {}("{}") in group {} from "{}"'.format(
-                                        self.name, type(handler).__name__, name, group, module_path))
-
-                                    count += 1
-                        except Exception:
+                        if pairs is None:
                             if warn_non_existent_functions:
                                 log.warning('[{}] [LOAD] Ignoring non-existent function "{}" from "{}"'.format(
                                     self.name, name, module_path))
+                            continue
+
+                        for handler, group in pairs:
+                            if not isinstance(group, int):
+                                log.warning('[%s] [LOAD] Ignoring %s("%s") from "%s": the group must be an int, got %r',
+                                            self.name, type(handler).__name__, name, module_path, group)
+                                continue
+
+                            self.add_handler(handler, group)
+
+                            log.info('[{}] [LOAD] {}("{}") in group {} from "{}"'.format(
+                                self.name, type(handler).__name__, name, group, module_path))
+
+                            count += 1
 
             if exclude:
                 for path, handlers in exclude:
@@ -1381,21 +1406,25 @@ class Client(Methods):
                         handlers = vars(module).keys()
                         warn_non_existent_functions = False
 
-                    for name in handlers:
-                        # noinspection PyBroadException
-                        try:
-                            for handler, group in getattr(module, name).handlers:
-                                if isinstance(handler, Handler) and isinstance(group, int):
-                                    self.remove_handler(handler, group)
+                    for name in list(handlers):
+                        pairs = _plugin_handlers(getattr(module, name, None))
 
-                                    log.info('[{}] [UNLOAD] {}("{}") from group {} in "{}"'.format(
-                                        self.name, type(handler).__name__, name, group, module_path))
-
-                                    count -= 1
-                        except Exception:
+                        if pairs is None:
                             if warn_non_existent_functions:
                                 log.warning('[{}] [UNLOAD] Ignoring non-existent function "{}" from "{}"'.format(
                                     self.name, name, module_path))
+                            continue
+
+                        for handler, group in pairs:
+                            if not isinstance(group, int):
+                                continue
+
+                            self.remove_handler(handler, group)
+
+                            log.info('[{}] [UNLOAD] {}("{}") from group {} in "{}"'.format(
+                                self.name, type(handler).__name__, name, group, module_path))
+
+                            count -= 1
 
             if count > 0:
                 log.info('[{}] Successfully loaded {} plugin{} from "{}"'.format(
