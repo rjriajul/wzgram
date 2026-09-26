@@ -1630,6 +1630,202 @@ class Message(Object, Update):
                 chats,
             )
 
+        media, media_type, has_media_spoiler, media_fields = await Message._parse_media(
+            client, message, users, chats
+        )
+        web_page = media_fields["web_page"]
+
+        link_preview_options = types.LinkPreviewOptions._parse(
+            media,
+            getattr(getattr(media, "webpage", None), "url", utils.get_first_url(message.message)),
+            message.invert_media
+        )
+
+        reply_markup = _parse_reply_markup(message.reply_markup)
+
+        reactions = (
+            types.MessageReactions._parse(client, message.reactions, users, chats)
+            if message.reactions is not None else None
+        )
+
+        parsed_message = Message(
+            id=message.id,
+            effect_id=getattr(message, "effect", None),
+            rich_message=(
+                await types.RichMessage._parse(client, message.rich_message, users, chats)
+                if message.rich_message is not None else None
+            ),
+            date=utils.timestamp_to_datetime(message.date),
+            guest_query_id=str(guest_query_id) if guest_query_id else None,
+            chat=chat,
+            from_user=from_user,
+            sender_chat=sender_chat,
+            sender_business_bot=(
+                types.User._parse(client, users.get(business_bot_id))
+                if business_bot_id is not None else None
+            ),
+            sender_tag=message.from_rank,
+            text=(
+                Str(message.message).init(entities) or None
+                if media is None or web_page is not None
+                else None
+            ),
+            caption=(
+                Str(message.message).init(entities) or None
+                if media is not None and web_page is None
+                else None
+            ),
+            entities=(
+                entities or None
+                if media is None or web_page is not None
+                else None
+            ),
+            caption_entities=(
+                entities or None
+                if media is not None and web_page is None
+                else None
+            ),
+            author_signature=message.post_author,
+            is_paid_post=bool(getattr(message.suggested_post, "price", None)),
+            has_protected_content=message.noforwards,
+            has_media_spoiler=has_media_spoiler,
+            forward_origin=forward_origin,
+            mentioned=message.mentioned,
+            scheduled=is_scheduled,
+            from_scheduled=message.from_scheduled,
+            media=media_type,
+            show_caption_above_media=message.invert_media,
+            edit_date=utils.timestamp_to_datetime(message.edit_date),
+            edit_hidden=message.edit_hide,
+            media_group_id=message.grouped_id,
+            video_processing_pending=message.video_processing_pending,
+            link_preview_options=link_preview_options,
+            views=message.views,
+            forwards=message.forwards,
+            sender_boost_count=message.from_boosts_applied,
+            via_bot=(
+                types.User._parse(client, users.get(message.via_bot_id))
+                if message.via_bot_id is not None else None
+            ),
+            outgoing=message.out,
+            business_connection_id=business_connection_id,
+            reply_markup=reply_markup,
+            reactions=reactions,
+            from_offline=message.offline,
+            send_paid_messages_stars=message.paid_message_stars,
+            unread_media=message.media_unread,
+            silent=message.silent,
+            pinned=message.pinned,
+            restriction_reason=types.List(
+                types.RestrictionReason._parse(reason)
+                for reason in getattr(message, "restriction_reason", [])
+            ) or None,
+            fact_check=(
+                types.FactCheck._parse(client, message.factcheck, users)
+                if message.factcheck is not None else None
+            ),
+            suggested_post_info=(
+                types.SuggestedPostInfo._parse(message.suggested_post)
+                if message.suggested_post is not None else None
+            ),
+            channel_post=message.post,
+            repeat_period=message.schedule_repeat_period,
+            summary_language_code=message.summary_from_language,
+            guest_bot_caller_user=(
+                types.User._parse(client, users.get(guest_caller_id))
+                if guest_caller_id is not None else None
+            ),
+            guest_bot_caller_chat=(
+                types.Chat._parse_chat(client, chats.get(guest_caller_id))
+                if guest_caller_id is not None else None
+            ),
+            raw=message,
+            client=client,
+            **media_fields
+        )
+
+        if (
+            forward_header and
+            forward_header.saved_from_peer and
+            forward_header.saved_from_msg_id
+        ):
+            saved_from_peer_id = utils.get_raw_peer_id(forward_header.saved_from_peer)
+            saved_from_peer_chat = chats.get(saved_from_peer_id)
+            if (
+                isinstance(saved_from_peer_chat, raw.types.Channel) and
+                not saved_from_peer_chat.megagroup
+            ):
+                parsed_message.automatic_forward = True
+
+        if message.reply_to:
+            parsed_message = await types.Message.__parse_reply(
+                client=client,
+                parsed_message=parsed_message,
+                message=message,
+                users=users,
+                chats=chats,
+                replies=replies,
+                business_connection_id=business_connection_id,
+                raw_reply_to_message=raw_reply_to_message,
+            )
+
+        if topics:
+            parsed_message.topic = types.ForumTopic._parse(
+                client,
+                topics.get(parsed_message.message_thread_id), users=users, chats=chats
+            )
+
+            if parsed_message.topic:
+                client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
+
+        if not parsed_message.topic and parsed_message.chat.is_forum:
+            parsed_topic = client.topic_cache[(parsed_message.chat.id, parsed_message.message_thread_id or 1)]
+
+            if parsed_topic:
+                parsed_message.topic = parsed_topic
+            elif client.fetch_topics and client.me and not client.me.is_bot:
+                try:
+                    parsed_message.topic = await client.get_forum_topics_by_id(
+                        chat_id=parsed_message.chat.id,
+                        topic_ids=parsed_message.message_thread_id or 1
+                    )
+
+                    if parsed_message.topic:
+                        client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
+                except (ChannelPrivate, ChannelForumMissing):
+                    pass
+
+        if chat.is_direct_messages and message.saved_peer_id:
+            parsed_message.direct_messages_topic_id = message.saved_peer_id.user_id
+
+            parsed_topic = client.topic_cache[(parsed_message.chat.id, parsed_message.direct_messages_topic_id)]
+
+            if parsed_topic:
+                parsed_message.topic = parsed_topic
+            elif client.fetch_topics and client.me and not client.me.is_bot:
+                try:
+                    parsed_message.topic = await client.get_direct_messages_topics_by_id(
+                        chat_id=parsed_message.chat.id,
+                        topic_ids=parsed_message.direct_messages_topic_id
+                    )
+
+                    if parsed_message.topic:
+                        client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
+                except (ChannelPrivate, ChatAdminRequired):
+                    pass
+
+        if not parsed_message.poll:  # Do not cache poll messages
+            client.message_cache[(parsed_message.chat.id, parsed_message.id)] = parsed_message
+
+        return parsed_message
+
+    @staticmethod
+    async def _parse_media(
+        client: "pyrogram.Client",
+        message: Union["raw.types.Message", "raw.types.EphemeralMessage"],
+        users: Dict[int, "raw.base.User"],
+        chats: Dict[int, "raw.base.Chat"]
+    ):
         photo = None
         live_photo = None
         location = None
@@ -1648,7 +1844,6 @@ class Message(Object, Update):
         sticker = None
         document = None
         web_page = None
-        link_preview_options = None
         poll = None
         dice = None
         paid_media = None
@@ -1781,210 +1976,30 @@ class Message(Object, Update):
                 media_type = enums.MessageMediaType.UNSUPPORTED
                 media = None
 
-        link_preview_options = types.LinkPreviewOptions._parse(
-            media,
-            getattr(getattr(media, "webpage", None), "url", utils.get_first_url(message.message)),
-            message.invert_media
-        )
-
-        reply_markup = _parse_reply_markup(message.reply_markup)
-
-        reactions = (
-            types.MessageReactions._parse(client, message.reactions, users, chats)
-            if message.reactions is not None else None
-        )
-
-        parsed_message = Message(
-            id=message.id,
-            effect_id=getattr(message, "effect", None),
-            rich_message=(
-                await types.RichMessage._parse(client, message.rich_message, users, chats)
-                if message.rich_message is not None else None
-            ),
-            date=utils.timestamp_to_datetime(message.date),
-            guest_query_id=str(guest_query_id) if guest_query_id else None,
-            chat=chat,
-            from_user=from_user,
-            sender_chat=sender_chat,
-            sender_business_bot=(
-                types.User._parse(client, users.get(business_bot_id))
-                if business_bot_id is not None else None
-            ),
-            sender_tag=message.from_rank,
-            text=(
-                Str(message.message).init(entities) or None
-                if media is None or web_page is not None
-                else None
-            ),
-            caption=(
-                Str(message.message).init(entities) or None
-                if media is not None and web_page is None
-                else None
-            ),
-            entities=(
-                entities or None
-                if media is None or web_page is not None
-                else None
-            ),
-            caption_entities=(
-                entities or None
-                if media is not None and web_page is None
-                else None
-            ),
-            author_signature=message.post_author,
-            is_paid_post=bool(getattr(message.suggested_post, "price", None)),
-            has_protected_content=message.noforwards,
-            has_media_spoiler=has_media_spoiler,
-            forward_origin=forward_origin,
-            mentioned=message.mentioned,
-            scheduled=is_scheduled,
-            from_scheduled=message.from_scheduled,
-            media=media_type,
-            paid_media=paid_media,
-            checklist=checklist,
-            show_caption_above_media=message.invert_media,
-            edit_date=utils.timestamp_to_datetime(message.edit_date),
-            edit_hidden=message.edit_hide,
-            media_group_id=message.grouped_id,
-            photo=photo,
-            live_photo=live_photo,
-            location=location,
-            contact=contact,
-            venue=venue,
-            audio=audio,
-            voice=voice,
-            animation=animation,
-            game=game,
-            giveaway=giveaway,
-            giveaway_winners=giveaway_winners,
-            invoice=invoice,
-            story=story,
-            video=video,
-            video_processing_pending=message.video_processing_pending,
-            video_note=video_note,
-            sticker=sticker,
-            document=document,
-            web_page=web_page,
-            link_preview_options=link_preview_options,
-            poll=poll,
-            dice=dice,
-            views=message.views,
-            forwards=message.forwards,
-            sender_boost_count=message.from_boosts_applied,
-            via_bot=(
-                types.User._parse(client, users.get(message.via_bot_id))
-                if message.via_bot_id is not None else None
-            ),
-            outgoing=message.out,
-            business_connection_id=business_connection_id,
-            reply_markup=reply_markup,
-            reactions=reactions,
-            from_offline=message.offline,
-            send_paid_messages_stars=message.paid_message_stars,
-            unread_media=message.media_unread,
-            silent=message.silent,
-            pinned=message.pinned,
-            restriction_reason=types.List(
-                types.RestrictionReason._parse(reason)
-                for reason in getattr(message, "restriction_reason", [])
-            ) or None,
-            fact_check=(
-                types.FactCheck._parse(client, message.factcheck, users)
-                if message.factcheck is not None else None
-            ),
-            suggested_post_info=(
-                types.SuggestedPostInfo._parse(message.suggested_post)
-                if message.suggested_post is not None else None
-            ),
-            channel_post=message.post,
-            repeat_period=message.schedule_repeat_period,
-            summary_language_code=message.summary_from_language,
-            guest_bot_caller_user=(
-                types.User._parse(client, users.get(guest_caller_id))
-                if guest_caller_id is not None else None
-            ),
-            guest_bot_caller_chat=(
-                types.Chat._parse_chat(client, chats.get(guest_caller_id))
-                if guest_caller_id is not None else None
-            ),
-            raw=message,
-            client=client
-        )
-
-        if (
-            forward_header and
-            forward_header.saved_from_peer and
-            forward_header.saved_from_msg_id
-        ):
-            saved_from_peer_id = utils.get_raw_peer_id(forward_header.saved_from_peer)
-            saved_from_peer_chat = chats.get(saved_from_peer_id)
-            if (
-                isinstance(saved_from_peer_chat, raw.types.Channel) and
-                not saved_from_peer_chat.megagroup
-            ):
-                parsed_message.automatic_forward = True
-
-        if message.reply_to:
-            parsed_message = await types.Message.__parse_reply(
-                client=client,
-                parsed_message=parsed_message,
-                message=message,
-                users=users,
-                chats=chats,
-                replies=replies,
-                business_connection_id=business_connection_id,
-                raw_reply_to_message=raw_reply_to_message,
-            )
-
-        if topics:
-            parsed_message.topic = types.ForumTopic._parse(
-                client,
-                topics.get(parsed_message.message_thread_id), users=users, chats=chats
-            )
-
-            if parsed_message.topic:
-                client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
-
-        if not parsed_message.topic and parsed_message.chat.is_forum:
-            parsed_topic = client.topic_cache[(parsed_message.chat.id, parsed_message.message_thread_id or 1)]
-
-            if parsed_topic:
-                parsed_message.topic = parsed_topic
-            elif client.fetch_topics and client.me and not client.me.is_bot:
-                try:
-                    parsed_message.topic = await client.get_forum_topics_by_id(
-                        chat_id=parsed_message.chat.id,
-                        topic_ids=parsed_message.message_thread_id or 1
-                    )
-
-                    if parsed_message.topic:
-                        client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
-                except (ChannelPrivate, ChannelForumMissing):
-                    pass
-
-        if chat.is_direct_messages and message.saved_peer_id:
-            parsed_message.direct_messages_topic_id = message.saved_peer_id.user_id
-
-            parsed_topic = client.topic_cache[(parsed_message.chat.id, parsed_message.direct_messages_topic_id)]
-
-            if parsed_topic:
-                parsed_message.topic = parsed_topic
-            elif client.fetch_topics and client.me and not client.me.is_bot:
-                try:
-                    parsed_message.topic = await client.get_direct_messages_topics_by_id(
-                        chat_id=parsed_message.chat.id,
-                        topic_ids=parsed_message.direct_messages_topic_id
-                    )
-
-                    if parsed_message.topic:
-                        client.topic_cache[(parsed_message.chat.id, parsed_message.topic.id)] = parsed_message.topic
-                except (ChannelPrivate, ChatAdminRequired):
-                    pass
-
-        if not parsed_message.poll:  # Do not cache poll messages
-            client.message_cache[(parsed_message.chat.id, parsed_message.id)] = parsed_message
-
-        return parsed_message
+        return media, media_type, has_media_spoiler, {
+            "photo": photo,
+            "live_photo": live_photo,
+            "location": location,
+            "contact": contact,
+            "venue": venue,
+            "game": game,
+            "giveaway": giveaway,
+            "giveaway_winners": giveaway_winners,
+            "invoice": invoice,
+            "story": story,
+            "audio": audio,
+            "voice": voice,
+            "animation": animation,
+            "video": video,
+            "video_note": video_note,
+            "sticker": sticker,
+            "document": document,
+            "web_page": web_page,
+            "poll": poll,
+            "dice": dice,
+            "paid_media": paid_media,
+            "checklist": checklist,
+        }
 
     @staticmethod
     async def __parse_reply(
@@ -2142,6 +2157,11 @@ class Message(Object, Update):
 
             reply_markup = _parse_reply_markup(message.reply_markup)
 
+            media, media_type, has_media_spoiler, media_fields = await Message._parse_media(
+                client, message, users, chats
+            )
+            is_caption = media is not None and media_fields["web_page"] is None
+
             return Message(
                 id=message.id,
                 from_user=from_user,
@@ -2150,8 +2170,17 @@ class Message(Object, Update):
                 ephemeral_message_id=message.id,
                 date=utils.timestamp_to_datetime(message.date),
                 outgoing=message.out,
-                text=types.Str(message.message).init(entities) or None,
-                entities=entities or None,
+                text=None if is_caption else types.Str(message.message).init(entities) or None,
+                entities=None if is_caption else entities or None,
+                caption=types.Str(message.message).init(entities) or None if is_caption else None,
+                caption_entities=entities or None if is_caption else None,
+                media=media_type,
+                has_media_spoiler=has_media_spoiler,
+                link_preview_options=types.LinkPreviewOptions._parse(
+                    media,
+                    getattr(getattr(media, "webpage", None), "url", utils.get_first_url(message.message)),
+                    message.invert_media
+                ),
                 reply_markup=reply_markup,
                 message_thread_id=message.top_msg_id,
                 rich_message=rich_message,
@@ -2161,6 +2190,7 @@ class Message(Object, Update):
                 anchor_message_id=message.anchor_msg_id,
                 raw=message,
                 client=client,
+                **media_fields
             )
 
     @property

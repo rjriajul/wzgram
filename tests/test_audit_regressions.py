@@ -3921,3 +3921,74 @@ async def test_cached_media_can_be_sent_as_an_ephemeral_message():
     assert request.media.id.id == 11
     assert request.message == "cap"
     assert sent.ephemeral_message_id == 3
+
+
+def _ephemeral_media_cases():
+    from pyrogram import raw
+
+    photo = raw.types.Photo(
+        id=1, access_hash=2, file_reference=b"r", date=0, dc_id=2,
+        sizes=[raw.types.PhotoSize(type="x", w=10, h=10, size=5)],
+    )
+
+    def document(*attributes, mime="application/octet-stream"):
+        return raw.types.MessageMediaDocument(document=raw.types.Document(
+            id=3, access_hash=4, file_reference=b"r", date=0, mime_type=mime, size=9, dc_id=2,
+            attributes=[raw.types.DocumentAttributeFilename(file_name="f"), *attributes],
+        ))
+
+    return {
+        "photo": raw.types.MessageMediaPhoto(photo=photo),
+        "document": document(),
+        "video": document(raw.types.DocumentAttributeVideo(duration=1, w=2, h=3), mime="video/mp4"),
+        "voice": document(raw.types.DocumentAttributeAudio(duration=1, voice=True), mime="audio/ogg"),
+        "location": raw.types.MessageMediaGeo(geo=raw.types.GeoPoint(long=1.0, lat=2.0, access_hash=0)),
+        "contact": raw.types.MessageMediaContact(
+            phone_number="1", first_name="a", last_name="", vcard="", user_id=0
+        ),
+        "dice": raw.types.MessageMediaDice(value=3, emoticon="🎲"),
+    }
+
+
+@pytest.mark.parametrize("kind", list(_ephemeral_media_cases()))
+async def test_an_ephemeral_message_reads_its_media_like_an_ordinary_one(kind):
+    from unittest.mock import MagicMock, Mock
+
+    from pyrogram import raw, types
+
+    media = _ephemeral_media_cases()[kind]
+    users = {
+        5: raw.types.User(id=5, first_name="b", usernames=[], restriction_reason=[]),
+        7: raw.types.User(id=7, first_name="u", usernames=[], restriction_reason=[]),
+    }
+
+    ephemeral = await types.Message._parse(Mock(), raw.types.EphemeralMessage(
+        id=3, from_id=raw.types.PeerUser(user_id=5), receiver_id=7, date=0,
+        message="cap", out=True, media=media,
+    ), dict(users), {})
+    ordinary = await types.Message._parse(MagicMock(), raw.types.Message(
+        id=3, from_id=raw.types.PeerUser(user_id=5), peer_id=raw.types.PeerUser(user_id=7),
+        date=0, message="cap", out=True, media=media, entities=[], restriction_reason=[],
+    ), dict(users), {})
+
+    assert ephemeral.media is ordinary.media is not None
+    assert getattr(ephemeral, kind) is not None
+    assert repr(getattr(ephemeral, kind)) == repr(getattr(ordinary, kind))
+
+    if kind == "dice":
+        assert ephemeral.text == ordinary.text
+    else:
+        assert ephemeral.caption == "cap" and ephemeral.text is None
+
+
+async def test_an_ephemeral_message_without_media_keeps_its_text():
+    from unittest.mock import Mock
+
+    from pyrogram import raw, types
+
+    message = await types.Message._parse(Mock(), raw.types.EphemeralMessage(
+        id=3, from_id=raw.types.PeerUser(user_id=5), receiver_id=7, date=0, message="hi", out=True,
+    ), {5: raw.types.User(id=5, first_name="b", usernames=[], restriction_reason=[])}, {})
+
+    assert message.text == "hi"
+    assert message.caption is None and message.media is None
