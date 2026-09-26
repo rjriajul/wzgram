@@ -3748,3 +3748,116 @@ async def test_a_media_session_handed_out_is_not_reaped_before_its_first_request
     assert await client._get_media_session_pool(2, 1) == [session]
     assert await client.reap_media_sessions() == 0
     assert not session.stopped
+
+
+_EPHEMERAL_SHORTCUTS = ["reply", "answer", "reply_rich", "answer_rich"] + [
+    f"{prefix}_{kind}"
+    for kind in (
+        "animation", "audio", "contact", "document", "location", "live_photo", "photo",
+        "sticker", "venue", "video", "video_note", "voice",
+    )
+    for prefix in ("reply", "answer")
+]
+
+
+def _shortcut_message(ephemeral, outgoing=False):
+    from unittest.mock import AsyncMock
+
+    from pyrogram import enums, types
+
+    return types.Message(
+        id=11,
+        chat=types.Chat(id=-100, type=enums.ChatType.SUPERGROUP),
+        from_user=types.User(id=5),
+        receiver_user=types.User(id=7) if ephemeral else None,
+        ephemeral_message_id=11 if ephemeral else None,
+        outgoing=outgoing,
+        client=AsyncMock(),
+    )
+
+
+async def _call_shortcut(message, name):
+    import inspect
+
+    method = getattr(message, name)
+    required = [
+        p.name for p in inspect.signature(method).parameters.values()
+        if p.default is inspect.Parameter.empty and p.kind is p.POSITIONAL_OR_KEYWORD
+    ]
+
+    await method(**{p: 1 if p in ("latitude", "longitude") else "x" for p in required})
+
+    return next(
+        c.kwargs for c in message._client.method_calls
+        if c[0].startswith("send_")
+    )
+
+
+@pytest.mark.parametrize("name", _EPHEMERAL_SHORTCUTS)
+@pytest.mark.parametrize("outgoing, receiver", [(False, 5), (True, 7)])
+async def test_a_reply_to_an_ephemeral_message_stays_ephemeral(name, outgoing, receiver):
+    kwargs = await _call_shortcut(_shortcut_message(True, outgoing), name)
+
+    assert kwargs["ephemeral_message_parameters"].receiver_user_id == receiver
+
+    if name.startswith("reply") and outgoing:
+        assert kwargs["reply_parameters"] is None
+    elif name.startswith("reply"):
+        assert kwargs["reply_parameters"].ephemeral_message_id == 11
+        assert kwargs["reply_parameters"].message_id is None
+
+
+@pytest.mark.parametrize("name", _EPHEMERAL_SHORTCUTS)
+async def test_a_reply_to_an_ordinary_message_is_not_ephemeral(name):
+    kwargs = await _call_shortcut(_shortcut_message(False), name)
+
+    assert kwargs["ephemeral_message_parameters"] is None
+
+    if name.startswith("reply"):
+        assert kwargs["reply_parameters"].message_id == 11
+        assert kwargs["reply_parameters"].ephemeral_message_id is None
+
+
+@pytest.mark.parametrize("outgoing, receiver", [(False, 5), (True, 7)])
+async def test_an_ephemeral_reply_to_an_ephemeral_message_goes_to_the_other_side(outgoing, receiver):
+    message = _shortcut_message(True, outgoing)
+
+    await message.reply_ephemeral_text("only you")
+
+    kwargs = message._client.send_ephemeral_message.await_args.kwargs
+
+    assert kwargs["receiver_id"] == receiver
+
+    if outgoing:
+        assert kwargs["reply_parameters"] is None
+    else:
+        assert kwargs["reply_parameters"].ephemeral_message_id == 11
+        assert kwargs["reply_parameters"].message_id is None
+
+
+async def test_an_ephemeral_message_keeps_a_receiver_missing_from_the_users():
+    from unittest.mock import Mock
+
+    from pyrogram import raw, types
+
+    message = await types.Message._parse(
+        Mock(),
+        raw.types.EphemeralMessage(
+            id=3,
+            from_id=raw.types.PeerUser(user_id=5),
+            peer_id=raw.types.PeerChannel(channel_id=100),
+            receiver_id=7,
+            date=0,
+            message="hi",
+            out=True,
+        ),
+        {5: raw.types.User(id=5, bot=True, first_name="bot", usernames=[], restriction_reason=[])},
+        {100: raw.types.Channel(
+            id=100, title="g", photo=raw.types.ChatPhotoEmpty(), date=0, megagroup=True,
+            usernames=[], restriction_reason=[]
+        )},
+    )
+
+    assert message.receiver_user.id == 7
+    assert message._ephemeral_target() == 7
+    assert message._reply_receiver_id() == 7
