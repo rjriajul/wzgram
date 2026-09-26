@@ -3492,3 +3492,110 @@ def test_a_plugin_registered_with_a_keyword_filter_is_loaded(tmp_path, monkeypat
     assert by_kind["MessageHandler"][1].filters is pyrogram.filters.private
     assert by_kind["ErrorHandler"][0] == 5
     assert list(by_kind["ErrorHandler"][1].exceptions) == [ValueError]
+
+
+def _bare(cls, **fields):
+    import inspect
+
+    obj = cls.__new__(cls)
+    for name in inspect.signature(cls.__init__).parameters:
+        if name not in {"self", "client"}:
+            setattr(obj, name, None)
+    for name, value in fields.items():
+        setattr(obj, name, value)
+    return obj
+
+
+def _sender_filter_cases():
+    t = pyrogram.types
+    someone = t.User(id=5, username="Someone", is_self=False, is_bot=False)
+    me = t.User(id=6, is_self=True, is_bot=False)
+    robot = t.User(id=7, is_self=False, is_bot=True)
+    group = t.Chat(id=-100)
+
+    return [
+        ("message", _bare(t.Message, from_user=someone, chat=group, outgoing=False), someone, None),
+        ("channel post", _bare(t.Message, sender_chat=group, chat=group, outgoing=False), None, group),
+        ("user status", t.User(id=5, username="Someone", is_self=False, is_bot=False), someone, None),
+        ("own status", t.User(id=6, is_self=True, is_bot=False), me, None),
+        ("bot status", t.User(id=7, is_self=False, is_bot=True), robot, None),
+        ("reaction", _bare(t.MessageReactionUpdated, user=someone, chat=group), someone, None),
+        ("own reaction", _bare(t.MessageReactionUpdated, user=me, chat=group), me, None),
+        ("anonymous reaction", _bare(t.MessageReactionUpdated, actor_chat=group, chat=group), None, group),
+        ("boost", _bare(t.ChatBoostUpdated, boost=_bare(t.ChatBoost, from_user=someone), chat=group), someone, None),
+        ("boost without booster", _bare(t.ChatBoostUpdated, boost=_bare(t.ChatBoost), chat=group), None, None),
+        ("removed boost", _bare(t.ChatBoostUpdated, chat=group), None, None),
+        ("business connection", _bare(t.BusinessConnection, user=someone), someone, None),
+        ("managed bot", _bare(t.ManagedBotUpdated, user=someone, bot=robot), someone, None),
+        ("callback query", _bare(t.CallbackQuery, from_user=robot), robot, None),
+        ("poll", _bare(t.Poll), None, None),
+        ("reaction count", _bare(t.MessageReactionCountUpdated, chat=group), None, None),
+        ("generation stopped", _bare(t.MessageGenerationStopped, chat=group), None, None),
+    ]
+
+
+@pytest.mark.parametrize(
+    "label,update,sender,sender_chat", _sender_filter_cases(), ids=[c[0] for c in _sender_filter_cases()]
+)
+@pytest.mark.asyncio
+async def test_the_sender_filters_read_every_update_type(label, update, sender, sender_chat):
+    f = pyrogram.filters
+
+    assert bool(await f.user(5)(None, update)) == bool(sender and sender.id == 5)
+    assert bool(await f.user("@someone")(None, update)) == bool(sender and sender.id == 5)
+    assert bool(await f.user("me")(None, update)) == bool(sender and sender.is_self)
+    assert bool(await f.me(None, update)) == bool(sender and sender.is_self)
+    assert bool(await f.bot(None, update)) == bool(sender and sender.is_bot)
+    assert bool(await f.sender_chat(None, update)) == bool(sender_chat)
+
+    if getattr(update, "chat", None) is not None:
+        assert bool(await f.chat("me")(None, update)) == bool(sender and sender.is_self)
+
+
+def _chat_filter_cases():
+    t = pyrogram.types
+    someone = t.User(id=5, is_self=False, is_bot=False)
+    private = t.Chat(id=5, type=pyrogram.enums.ChatType.PRIVATE)
+    group = t.Chat(id=-100, type=pyrogram.enums.ChatType.SUPERGROUP, is_forum=True, is_admin=True)
+    channel = t.Chat(id=-200, type=pyrogram.enums.ChatType.CHANNEL)
+
+    return [
+        ("incoming message", _bare(t.Message, from_user=someone, chat=private, outgoing=False), private, False),
+        ("outgoing message", _bare(t.Message, from_user=someone, chat=group, outgoing=True), group, True),
+        ("channel post", _bare(t.Message, chat=channel, outgoing=False), channel, False),
+        ("callback query", _bare(t.CallbackQuery, from_user=someone, message=_bare(t.Message, chat=group)), group, False),
+        ("inline callback query", _bare(t.CallbackQuery, from_user=someone), None, False),
+        ("inline query", _bare(t.InlineQuery, from_user=someone), None, False),
+        ("chosen inline result", _bare(t.ChosenInlineResult, from_user=someone), None, False),
+        ("user status", t.User(id=5, is_self=False), None, False),
+        ("poll", _bare(t.Poll), None, False),
+        ("pre checkout query", _bare(t.PreCheckoutQuery, from_user=someone), None, False),
+        ("shipping query", _bare(t.ShippingQuery, from_user=someone), None, False),
+        ("purchased paid media", _bare(t.PurchasedPaidMedia, from_user=someone), None, False),
+        ("business connection", _bare(t.BusinessConnection, user=someone), None, False),
+        ("managed bot", _bare(t.ManagedBotUpdated, user=someone), None, False),
+        ("chat member", _bare(t.ChatMemberUpdated, from_user=someone, chat=group), group, False),
+        ("reaction", _bare(t.MessageReactionUpdated, user=someone, chat=private), private, False),
+        ("boost", _bare(t.ChatBoostUpdated, chat=channel), channel, False),
+    ]
+
+
+@pytest.mark.parametrize(
+    "label,update,chat,outgoing", _chat_filter_cases(), ids=[c[0] for c in _chat_filter_cases()]
+)
+@pytest.mark.asyncio
+async def test_the_chat_and_direction_filters_read_every_update_type(label, update, chat, outgoing):
+    f = pyrogram.filters
+    types = pyrogram.enums.ChatType
+    kind = chat.type if chat else None
+
+    assert bool(await f.incoming(None, update)) is (not outgoing)
+    assert bool(await f.outgoing(None, update)) is outgoing
+    assert bool(await f.private(None, update)) is (kind in {types.PRIVATE, types.BOT})
+    assert bool(await f.direct(None, update)) is (kind == types.PRIVATE)
+    assert bool(await f.group(None, update)) is (kind in {types.GROUP, types.SUPERGROUP, types.FORUM})
+    assert bool(await f.channel(None, update)) is (kind == types.CHANNEL)
+    assert bool(await f.forum(None, update)) is bool(chat and chat.is_forum)
+    assert bool(await f.admin(None, update)) is bool(chat and chat.is_admin)
+    assert bool(await f.chat(-100)(None, update)) is bool(chat and chat.id == -100)
+    assert bool(await f.chat([5, -200])(None, update)) is bool(chat and chat.id in (5, -200))

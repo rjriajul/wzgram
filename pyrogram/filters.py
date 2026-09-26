@@ -24,6 +24,7 @@ import pyrogram
 from pyrogram import enums
 from pyrogram.types import (
     CallbackQuery,
+    ChatBoostUpdated,
     ChosenInlineResult,
     InlineKeyboardMarkup,
     InlineQuery,
@@ -31,6 +32,7 @@ from pyrogram.types import (
     PreCheckoutQuery,
     ReplyKeyboardMarkup,
     Update,
+    User,
 )
 
 
@@ -125,9 +127,33 @@ all = create(all_filter)
 
 # endregion
 
+
+def _sender_of(update) -> Optional[User]:
+    if isinstance(update, User):
+        return update
+
+    if isinstance(update, ChatBoostUpdated):
+        return update.boost.from_user if update.boost else None
+
+    return getattr(update, "from_user", None) or getattr(update, "user", None)
+
+
+def _sender_chat_of(update):
+    return getattr(update, "sender_chat", None) or getattr(update, "actor_chat", None)
+
+
+def _chat_of(update):
+    return getattr(update, "chat", None)
+
+
+def _is_outgoing(update) -> bool:
+    return bool(getattr(update, "outgoing", False))
+
+
 # region me_filter
 async def me_filter(_, __, m: Message):
-    return bool(m.from_user and (m.from_user.is_self or getattr(m, "outgoing", False)))
+    sender = _sender_of(m)
+    return bool(sender and (sender.is_self or _is_outgoing(m)))
 
 
 me = create(me_filter)
@@ -137,7 +163,8 @@ me = create(me_filter)
 
 # region bot_filter
 async def bot_filter(_, __, m: Message):
-    return bool(m.from_user and m.from_user.is_bot)
+    sender = _sender_of(m)
+    return bool(sender and sender.is_bot)
 
 
 bot = create(bot_filter)
@@ -147,7 +174,7 @@ bot = create(bot_filter)
 
 # region sender_chat_filter
 async def sender_chat_filter(_, __, m: Message):
-    return bool(m.sender_chat)
+    return bool(_sender_chat_of(m))
 
 
 sender_chat = create(sender_chat_filter)
@@ -157,7 +184,7 @@ sender_chat = create(sender_chat_filter)
 
 # region incoming_filter
 async def incoming_filter(_, __, m: Message):
-    return not m.outgoing
+    return not _is_outgoing(m)
 
 
 incoming = create(incoming_filter)
@@ -167,7 +194,7 @@ incoming = create(incoming_filter)
 
 # region outgoing_filter
 async def outgoing_filter(_, __, m: Message):
-    return m.outgoing
+    return _is_outgoing(m)
 
 
 outgoing = create(outgoing_filter)
@@ -477,7 +504,8 @@ media_spoiler = create(media_spoiler_filter)
 
 # region private_filter
 async def private_filter(_, __, m: Message):
-    return bool(m.chat and m.chat.type in {enums.ChatType.PRIVATE, enums.ChatType.BOT})
+    chat = _chat_of(m)
+    return bool(chat and chat.type in {enums.ChatType.PRIVATE, enums.ChatType.BOT})
 
 
 private = create(private_filter)
@@ -487,7 +515,8 @@ private = create(private_filter)
 
 # region group_filter
 async def group_filter(_, __, m: Message):
-    return bool(m.chat and m.chat.type in {enums.ChatType.GROUP, enums.ChatType.SUPERGROUP, enums.ChatType.FORUM})
+    chat = _chat_of(m)
+    return bool(chat and chat.type in {enums.ChatType.GROUP, enums.ChatType.SUPERGROUP, enums.ChatType.FORUM})
 
 
 group = create(group_filter)
@@ -497,7 +526,8 @@ group = create(group_filter)
 
 # region channel_filter
 async def channel_filter(_, __, m: Message):
-    return bool(m.chat and m.chat.type == enums.ChatType.CHANNEL)
+    chat = _chat_of(m)
+    return bool(chat and chat.type == enums.ChatType.CHANNEL)
 
 
 channel = create(channel_filter)
@@ -507,7 +537,8 @@ channel = create(channel_filter)
 
 # region direct_filter
 async def direct_filter(_, __, m: Message):
-    return bool(m.chat and m.chat.type == enums.ChatType.PRIVATE)
+    chat = _chat_of(m)
+    return bool(chat and chat.type == enums.ChatType.PRIVATE)
 
 
 direct = create(direct_filter)
@@ -517,7 +548,8 @@ direct = create(direct_filter)
 
 # region forum_filter
 async def forum_filter(_, __, m: Message):
-    return bool(m.chat and m.chat.is_forum)
+    chat = _chat_of(m)
+    return bool(chat and chat.is_forum)
 
 
 forum = create(forum_filter)
@@ -697,7 +729,8 @@ via_bot = create(via_bot_filter)
 
 # region admin_filter
 async def admin_filter(_, __, m: Message):
-    return bool(m.chat and m.chat.is_admin)
+    chat = _chat_of(m)
+    return bool(chat and chat.is_admin)
 
 
 admin = create(admin_filter)
@@ -957,12 +990,13 @@ class user(Filter, set):
         )
 
     async def __call__(self, _, message: Message):
-        return (message.from_user
-                and (message.from_user.id in self
-                     or (message.from_user.username
-                         and message.from_user.username.lower() in self)
+        sender = _sender_of(message)
+        return (sender
+                and (sender.id in self
+                     or (sender.username
+                         and sender.username.lower() in self)
                      or ("me" in self
-                         and message.from_user.is_self)))
+                         and sender.is_self)))
 
 
 # noinspection PyPep8Naming
@@ -977,14 +1011,16 @@ class chat(Filter, set):
         )
 
     async def __call__(self, _, message: Message):
-        return (message.chat
-                and (message.chat.id in self
-                     or (message.chat.username
-                         and message.chat.username.lower() in self)
+        chat = _chat_of(message)
+        sender = _sender_of(message)
+        return (chat
+                and (chat.id in self
+                     or (chat.username
+                         and chat.username.lower() in self)
                      or ("me" in self
-                         and message.from_user
-                         and message.from_user.is_self
-                         and not message.outgoing)))
+                         and sender
+                         and sender.is_self
+                         and not _is_outgoing(message))))
 
 
 # noinspection PyPep8Naming
