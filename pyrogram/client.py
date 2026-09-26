@@ -287,6 +287,7 @@ class Client(Methods):
         skip_updates (``bool``, *optional*):
             Pass True to skip pending updates that arrived while the client was offline.
             Doesn't work if *in_memory* is set to True.
+            Skipped updates can still be fetched on demand with :meth:`~pyrogram.Client.recover_gaps`.
             Defaults to True.
 
         takeout (``bool``, *optional*):
@@ -674,7 +675,9 @@ class Client(Methods):
             if idle > self.UPDATES_WATCHDOG_INTERVAL:
                 try:
                     await self.invoke(raw.functions.updates.GetState())
-                    await self.recover_gaps()
+
+                    if not self.skip_updates:
+                        await self.recover_gaps()
                 except Exception:
                     log.exception("Updates watchdog poll failed")
 

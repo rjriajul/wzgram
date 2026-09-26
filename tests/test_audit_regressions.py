@@ -4318,3 +4318,71 @@ async def test_a_dropped_state_starts_over():
     await client._save_update_state((-1000000000001, 3, None, 8, 1))
 
     assert client.written == [-1000000000001, (-1000000000001, 3, None, 8, 1)]
+
+
+async def test_recover_gaps_called_by_hand_recovers_with_skip_updates_on():
+    from pyrogram import raw
+
+    client = _GapClient([(0, 10, 50, 7, 1)], [
+        raw.types.updates.Difference(
+            new_messages=[_channel_message(1)], new_encrypted_messages=[], other_updates=[], chats=[],
+            users=[], state=_state(11, 50),
+        ),
+    ])
+    client.skip_updates = True
+
+    assert await client.recover_gaps() == (1, 0)
+    assert len(client.sent) == 1
+
+
+class _SkipWatchdogClient:
+    UPDATES_WATCHDOG_INTERVAL = 0.01
+    updates_watchdog = pyrogram.Client.updates_watchdog
+
+    def __init__(self, skip_updates):
+        import time
+
+        self.skip_updates = skip_updates
+        self.updates_watchdog_event = asyncio.Event()
+        self._last_update_monotonic = time.monotonic() - 86400
+        self.polls = 0
+        self.recoveries = 0
+
+    async def invoke(self, query, **kwargs):
+        self.polls += 1
+
+    async def recover_gaps(self):
+        self.recoveries += 1
+        return (0, 0)
+
+
+@pytest.mark.parametrize("skip_updates", [True, False])
+async def test_the_watchdog_recovers_on_its_own_only_when_updates_are_not_skipped(skip_updates):
+    client = _SkipWatchdogClient(skip_updates)
+
+    task = asyncio.ensure_future(client.updates_watchdog())
+    await asyncio.sleep(0.1)
+    client.updates_watchdog_event.set()
+    await asyncio.wait_for(task, timeout=5)
+
+    assert client.polls > 0
+    assert (client.recoveries == 0) is skip_updates
+
+
+@pytest.mark.parametrize("skip_updates", [True, False])
+async def test_start_recovers_on_its_own_only_when_updates_are_not_skipped(skip_updates):
+    client = _DispatcherClient()
+    client.skip_updates = skip_updates
+    recoveries = []
+
+    async def recover_gaps():
+        recoveries.append(1)
+        return (0, 0)
+
+    client.recover_gaps = recover_gaps
+    dispatcher = Dispatcher(client)
+
+    await dispatcher.start()
+    await dispatcher.stop()
+
+    assert bool(recoveries) is not skip_updates
