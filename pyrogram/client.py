@@ -611,6 +611,7 @@ class Client(Methods):
         self.updates_watchdog_event = asyncio.Event()
         self.last_update_time = datetime.now()
         self._last_update_monotonic = time.monotonic()
+        self._state_marks = {}
 
         self.media_pool_reaper_task = None
         self.media_pool_reaper_event = asyncio.Event()
@@ -1074,6 +1075,31 @@ class Client(Methods):
 
         return is_min
 
+    async def _save_update_state(self, state):
+        if isinstance(state, int):
+            self._state_marks.pop(state, None)
+            await self.storage.update_state(state)
+            return
+
+        state_id, pts, qts = state[:3]
+        known_pts, known_qts = self._state_marks.get(state_id, (None, None))
+
+        if pts is not None and known_pts is not None and pts < known_pts:
+            pts = None
+
+        if qts is not None and known_qts is not None and qts < known_qts:
+            qts = None
+
+        if pts is None and qts is None and (state[1] is not None or state[2] is not None):
+            return
+
+        self._state_marks[state_id] = (
+            known_pts if pts is None else pts,
+            known_qts if qts is None else qts,
+        )
+
+        await self.storage.update_state((state_id, pts, qts) + tuple(state[3:]))
+
     async def handle_updates(self, updates):
         # the datetime is what callers read; the watchdog measures a duration and
         # a host clock that steps backwards must not stall it for the step
@@ -1151,9 +1177,9 @@ class Client(Methods):
                 await self.dispatcher.enqueue_update(update, users, chats)
 
             for state in pending_states.values():
-                await self.storage.update_state(state)
+                await self._save_update_state(state)
         elif isinstance(updates, (raw.types.UpdateShortMessage, raw.types.UpdateShortChatMessage)):
-            await self.storage.update_state(
+            await self._save_update_state(
                 (
                     0,
                     updates.pts,
@@ -1190,11 +1216,12 @@ class Client(Methods):
             qts = getattr(updates.update, "qts", None)
 
             if qts:
-                await self.storage.update_state((0, None, qts, updates.date, None))
+                await self._save_update_state((0, None, qts, updates.date, None))
         elif isinstance(updates, raw.types.UpdatesTooLong):
             log.info(updates)
 
     async def load_session(self):
+        self._state_marks = {}
         await self.storage.open()
 
         session_empty = any([

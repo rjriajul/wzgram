@@ -16,7 +16,10 @@ from tests.test_session import DummyClient
 class _UnresolvableGapClient(RecoverGaps):
     """One stored channel can no longer be resolved; the others still can."""
 
+    _save_update_state = pyrogram.Client._save_update_state
+
     def __init__(self):
+        self._state_marks = {}
         self.skip_updates = False
         self.recovered = []
         self.dropped = []

@@ -124,7 +124,10 @@ async def test_the_updates_watchdog_survives_a_failed_poll():
 
 
 class _GapClient(RecoverGaps):
+    _save_update_state = pyrogram.Client._save_update_state
+
     def __init__(self, error):
+        self._state_marks = {}
         self.skip_updates = False
         self.error = error
         self.calls = 0

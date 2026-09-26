@@ -3999,6 +3999,8 @@ class _GapClient:
         from pyrogram.methods.advanced.recover_gaps import RecoverGaps
 
         self.recover_gaps = RecoverGaps.recover_gaps.__get__(self)
+        self._save_update_state = pyrogram.Client._save_update_state.__get__(self)
+        self._state_marks = {}
         self.skip_updates = False
         self.sent = []
         self.written = []
@@ -4162,9 +4164,11 @@ async def test_a_channel_state_without_pts_is_still_skipped():
 
 class _QtsClient:
     handle_updates = pyrogram.Client.handle_updates
+    _save_update_state = pyrogram.Client._save_update_state
 
     def __init__(self):
         self.states = []
+        self._state_marks = {}
 
         outer = self
 
@@ -4213,3 +4217,104 @@ async def test_a_short_update_with_qts_is_stored_in_the_common_state():
     ))
 
     assert client.states == [(0, None, 77, 1700000000, None)]
+
+
+def _pts_batch(pts):
+    from pyrogram import raw
+
+    return raw.types.Updates(
+        updates=[raw.types.UpdateNewMessage(message=raw.types.MessageEmpty(id=pts), pts=pts, pts_count=1)],
+        users=[], chats=[], date=1700000000 + pts, seq=0,
+    )
+
+
+async def test_a_batch_that_arrives_late_does_not_move_the_state_back():
+    client = _QtsClient()
+
+    await client.handle_updates(_pts_batch(12))
+    await client.handle_updates(_pts_batch(11))
+    await client.handle_updates(_pts_batch(13))
+
+    assert [state[1] for state in client.states] == [12, 13]
+
+
+async def test_a_short_message_that_arrives_late_does_not_move_the_state_back():
+    from pyrogram import raw
+
+    client = _QtsClient()
+
+    async def invoke(query, **kwargs):
+        return raw.types.updates.Difference(
+            new_messages=[], new_encrypted_messages=[], other_updates=[], chats=[], users=[],
+            state=_state(query.pts + 1, 0),
+        )
+
+    client.invoke = invoke
+
+    for pts in (5946, 5945):
+        await client.handle_updates(raw.types.UpdateShortMessage(
+            id=pts, user_id=1, message="m", pts=pts, pts_count=1, date=0
+        ))
+
+    assert [state[1] for state in client.states] == [5946]
+
+
+async def test_a_qts_that_arrives_late_does_not_move_the_state_back():
+    from pyrogram import raw
+
+    client = _QtsClient()
+
+    for qts in (41, 40):
+        await client.handle_updates(raw.types.UpdateShort(
+            update=raw.types.UpdateBotStopped(user_id=1, date=0, stopped=True, qts=qts), date=0
+        ))
+
+    assert [state[2] for state in client.states] == [41]
+
+
+async def test_a_late_qts_still_stores_a_newer_pts_of_the_same_batch():
+    from pyrogram import raw
+
+    client = _QtsClient()
+
+    await client.handle_updates(raw.types.Updates(
+        updates=[raw.types.UpdateBotStopped(user_id=1, date=0, stopped=True, qts=50)],
+        users=[], chats=[], date=0, seq=0,
+    ))
+    await client.handle_updates(raw.types.Updates(
+        updates=[
+            raw.types.UpdateBotStopped(user_id=1, date=0, stopped=True, qts=49),
+            raw.types.UpdateNewMessage(message=raw.types.MessageEmpty(id=1), pts=7, pts_count=1),
+        ],
+        users=[], chats=[], date=0, seq=0,
+    ))
+
+    assert client.states[-1][:3] == (0, 7, None)
+
+
+async def test_recovery_does_not_move_back_a_state_seen_since():
+    from pyrogram import raw
+
+    client = _GapClient([(0, 90, 5, 7, 1)], [raw.types.updates.DifferenceEmpty(date=8, seq=2)])
+    client._state_marks[0] = (100, 5)
+
+    await client.recover_gaps()
+
+    assert all(state[1] is None or state[1] >= 100 for state in client.written)
+
+
+async def test_a_dropped_state_starts_over():
+    from pyrogram.errors import ChannelPrivate
+
+    client = _GapClient([(-1000000000001, 100, None, 7, 1)], [])
+    client._state_marks[-1000000000001] = (100, None)
+
+    async def invoke(query, **kwargs):
+        raise ChannelPrivate()
+
+    client.invoke = invoke
+
+    await client.recover_gaps()
+    await client._save_update_state((-1000000000001, 3, None, 8, 1))
+
+    assert client.written == [-1000000000001, (-1000000000001, 3, None, 8, 1)]

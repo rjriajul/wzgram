@@ -128,7 +128,7 @@ class RecoverGaps:
                     break
 
                 if isinstance(diff, raw.types.updates.DifferenceEmpty):
-                    await self.storage.update_state(
+                    await self._save_update_state(
                         (
                             id,
                             local_pts,
@@ -140,7 +140,7 @@ class RecoverGaps:
                     break
                 elif isinstance(diff, raw.types.updates.DifferenceTooLong):
                     local_pts = diff.pts
-                    await self.storage.update_state(
+                    await self._save_update_state(
                         (
                             id,
                             local_pts,
@@ -161,7 +161,7 @@ class RecoverGaps:
                     local_date = diff.intermediate_state.date
                     local_seq = diff.intermediate_state.seq
                 elif isinstance(diff, raw.types.updates.ChannelDifferenceEmpty):
-                    await self.storage.update_state(
+                    await self._save_update_state(
                         (
                             id,
                             diff.pts,
@@ -173,7 +173,7 @@ class RecoverGaps:
                     break
                 elif isinstance(diff, raw.types.updates.ChannelDifferenceTooLong):
                     local_pts = diff.dialog.pts
-                    await self.storage.update_state(
+                    await self._save_update_state(
                         (
                             id,
                             local_pts,
@@ -218,10 +218,10 @@ class RecoverGaps:
                 continue
 
             if unusable:
-                await self.storage.update_state(id)
+                await self._save_update_state(id)
                 continue
 
-            await self.storage.update_state(
+            await self._save_update_state(
                 (
                     id,
                     local_pts,

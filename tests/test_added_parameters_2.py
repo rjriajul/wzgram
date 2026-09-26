@@ -39,6 +39,8 @@ async def test_gaps_are_recovered_only_for_the_chats_asked_for(monkeypatch):
     class Client(FakeClient):
         skip_updates = False
         storage = Storage()
+        _save_update_state = pyrogram.Client._save_update_state
+        _state_marks = {}
 
     client = Client([raw.types.updates.DifferenceEmpty(date=0, seq=0)])
 
@@ -57,6 +59,8 @@ async def test_no_matching_chat_recovers_nothing():
     class Client(FakeClient):
         skip_updates = False
         storage = Storage()
+        _save_update_state = pyrogram.Client._save_update_state
+        _state_marks = {}
 
     client = Client()
 

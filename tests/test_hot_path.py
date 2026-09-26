@@ -105,9 +105,11 @@ async def test_an_unchanged_peer_is_not_rewritten(storage):
 
 class _StateClient:
     handle_updates = pyrogram.Client.handle_updates
+    _save_update_state = pyrogram.Client._save_update_state
 
     def __init__(self):
         self.states = []
+        self._state_marks = {}
         self.enqueued = []
 
         outer = self
