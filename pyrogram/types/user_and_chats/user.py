@@ -54,6 +54,9 @@ class Link(str):
     def __new__(cls, url, text, style):
         return str.__new__(cls, Link.format(url, text, style))
 
+    def __getnewargs__(self):
+        return self.url, self.text, self.style
+
     def __call__(self, other: Optional[str] = None, *, style: Optional[str] = None):
         return Link.format(self.url, other or self.text, style or self.style)
 

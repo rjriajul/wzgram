@@ -3359,3 +3359,22 @@ async def test_changing_the_password_keeps_the_hint_unless_told_otherwise(stored
     assert await pyrogram.Client.change_cloud_password(client, "old", "new", **kwargs) is True
 
     assert client.sent.new_settings.hint == expected
+
+
+@pytest.mark.parametrize("style", [pyrogram.enums.ParseMode.HTML, pyrogram.enums.ParseMode.MARKDOWN])
+def test_a_mention_survives_copy_and_pickle(style):
+    import copy
+    import pickle
+
+    from pyrogram.types.user_and_chats.user import Link
+
+    link = Link("tg://user?id=1", "A <b> & B", style)
+    copies = [copy.copy(link), copy.deepcopy(link)] + [
+        pickle.loads(pickle.dumps(link, protocol)) for protocol in range(pickle.HIGHEST_PROTOCOL + 1)
+    ]
+
+    for copied in copies:
+        assert type(copied) is Link
+        assert copied == link
+        assert (copied.url, copied.text, copied.style) == (link.url, link.text, link.style)
+        assert copied("other") == link("other")
