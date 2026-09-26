@@ -910,16 +910,8 @@ async def write_edit_reply_markup(
     *,
     reply_markup: Union["types.InlineKeyboardMarkup", type[object], None],
 ) -> Optional["raw.base.ReplyMarkup"]:
-    """Serialize reply_markup for edit requests, supporting None to remove keyboards.
-
-    `object` (the class, not an instance) is the sentinel for "not specified",
-    distinct from None, which means "remove the reply markup".
-    """
-    if reply_markup is object:
+    if reply_markup is object or reply_markup is None:
         return None
-
-    if reply_markup is None:
-        return raw.types.ReplyInlineMarkup(rows=[])
 
     return await reply_markup.write(client)
 

@@ -352,12 +352,10 @@ async def test_not_passing_a_reply_markup_leaves_the_field_out_of_the_request():
 
 
 @pytest.mark.asyncio
-async def test_passing_none_sends_an_inline_markup_with_no_rows():
+async def test_passing_none_leaves_the_field_out_of_the_request():
     client = FakeClient()
     await pyrogram.Client.edit_message_reply_markup(client, chat_id=7, message_id=11, reply_markup=None)
-    sent = _reply_markup_on_the_wire(client)
-    assert isinstance(sent, raw.types.ReplyInlineMarkup)
-    assert sent.rows == []
+    assert _reply_markup_on_the_wire(client) is None
 
 
 @pytest.mark.asyncio
