@@ -56,8 +56,24 @@ class OnError:
                 if not hasattr(func, "handlers"):
                     func.handlers = []
 
+                if self is not None:
+                    handler_exceptions = self
+                elif isinstance(exceptions, Filter):
+                    handler_exceptions = None
+                else:
+                    handler_exceptions = exceptions
+
+                if isinstance(exceptions, Filter):
+                    handler_filters = exceptions
+                elif isinstance(filters, Filter):
+                    handler_filters = filters
+                else:
+                    handler_filters = None
+
+                handler_group = filters if isinstance(filters, int) else group
+
                 func.handlers.append(
-                    (pyrogram.handlers.ErrorHandler(func, exceptions, filters), group)
+                    (pyrogram.handlers.ErrorHandler(func, handler_exceptions, handler_filters), handler_group)
                 )
 
             return func

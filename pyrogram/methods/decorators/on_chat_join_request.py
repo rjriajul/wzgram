@@ -51,10 +51,12 @@ class OnChatJoinRequest:
                 if not hasattr(func, "handlers"):
                     func.handlers = []
 
+                handler_filters, handler_group = pyrogram.utils.unbound_handler_args(self, filters, group)
+
                 func.handlers.append(
                     (
-                        pyrogram.handlers.ChatJoinRequestHandler(func, self),
-                        group if filters is None else filters
+                        pyrogram.handlers.ChatJoinRequestHandler(func, handler_filters),
+                        handler_group
                     )
                 )
 

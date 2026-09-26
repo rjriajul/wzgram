@@ -915,3 +915,9 @@ async def write_edit_reply_markup(
 
     return await reply_markup.write(client)
 
+
+def unbound_handler_args(receiver, filters, group: int):
+    if isinstance(filters, int):
+        return receiver, filters
+
+    return (receiver if receiver is not None else filters), group

@@ -52,10 +52,12 @@ class OnShippingQuery:
                 if not hasattr(func, "handlers"):
                     func.handlers = []
 
+                handler_filters, handler_group = pyrogram.utils.unbound_handler_args(self, filters, group)
+
                 func.handlers.append(
                     (
-                        pyrogram.handlers.ShippingQueryHandler(func, self),
-                        group if filters is None else filters
+                        pyrogram.handlers.ShippingQueryHandler(func, handler_filters),
+                        handler_group
                     )
                 )
 

@@ -3378,3 +3378,117 @@ def test_a_mention_survives_copy_and_pickle(style):
         assert copied == link
         assert (copied.url, copied.text, copied.style) == (link.url, link.text, link.style)
         assert copied("other") == link("other")
+
+
+_FILTERED_DECORATORS = sorted(
+    name for name in dir(pyrogram.Client)
+    if name.startswith("on_")
+    and name not in {"on_start", "on_stop", "on_connect", "on_disconnect", "on_error"}
+)
+
+
+def _unbound_registration(decorator):
+    def callback(*args):
+        pass
+
+    decorator(callback)
+    [(handler, group)] = callback.handlers
+    return handler, group
+
+
+@pytest.mark.parametrize("name", _FILTERED_DECORATORS)
+@pytest.mark.parametrize(
+    "call,expected_filter,expected_group",
+    [
+        (lambda on, f: on(), None, 0),
+        (lambda on, f: on(f), "f", 0),
+        (lambda on, f: on(f, 2), "f", 2),
+        (lambda on, f: on(f, group=2), "f", 2),
+        (lambda on, f: on(filters=f), "f", 0),
+        (lambda on, f: on(filters=f, group=2), "f", 2),
+        (lambda on, f: on(group=2), None, 2),
+        (lambda on, f: on(None, 2), None, 2),
+    ],
+)
+def test_an_unbound_decorator_keeps_its_filter_and_group(name, call, expected_filter, expected_group):
+    f = pyrogram.filters.create(lambda *args: True)
+
+    handler, group = _unbound_registration(call(getattr(pyrogram.Client, name), f))
+
+    assert handler.filters is (f if expected_filter else None)
+    assert group == expected_group
+
+
+def test_an_unbound_decorator_keeps_an_empty_set_filter():
+    empty = pyrogram.filters.user([])
+
+    handler, group = _unbound_registration(pyrogram.Client.on_message(filters=empty))
+
+    assert handler.filters is empty
+    assert group == 0
+
+
+@pytest.mark.parametrize(
+    "call,expected_exceptions,expected_filter,expected_group",
+    [
+        (lambda on, f: on(), None, None, 0),
+        (lambda on, f: on(ValueError), ValueError, None, 0),
+        (lambda on, f: on([ValueError, KeyError]), [ValueError, KeyError], None, 0),
+        (lambda on, f: on(ValueError, f), ValueError, "f", 0),
+        (lambda on, f: on(ValueError, f, 2), ValueError, "f", 2),
+        (lambda on, f: on(ValueError, f, group=2), ValueError, "f", 2),
+        (lambda on, f: on(ValueError, filters=f), ValueError, "f", 0),
+        (lambda on, f: on(ValueError, group=2), ValueError, None, 2),
+        (lambda on, f: on(ValueError, None, 2), ValueError, None, 2),
+        (lambda on, f: on(exceptions=ValueError, filters=f, group=2), ValueError, "f", 2),
+        (lambda on, f: on(filters=f), None, "f", 0),
+        (lambda on, f: on(group=2), None, None, 2),
+        (lambda on, f: on(None, f, 2), None, "f", 2),
+        (lambda on, f: on(None, None, 2), None, None, 2),
+        (lambda on, f: on(ValueError, None, f), ValueError, "f", 0),
+    ],
+)
+def test_an_unbound_error_decorator_keeps_its_exceptions_filter_and_group(
+    call, expected_exceptions, expected_filter, expected_group
+):
+    f = pyrogram.filters.create(lambda *args: True)
+
+    handler, group = _unbound_registration(call(pyrogram.Client.on_error, f))
+
+    expected = expected_exceptions if isinstance(expected_exceptions, list) else (
+        [expected_exceptions] if expected_exceptions else [Exception]
+    )
+    assert list(handler.exceptions) == expected
+    assert handler.filters is (f if expected_filter else None)
+    assert group == expected_group
+
+
+def test_a_plugin_registered_with_a_keyword_filter_is_loaded(tmp_path, monkeypatch):
+    package = tmp_path / "kwplugins"
+    package.mkdir()
+    (package / "handlers.py").write_text(
+        "from pyrogram import Client, filters\n"
+        "\n"
+        "@Client.on_message(filters=filters.private, group=4)\n"
+        "async def private(client, message):\n"
+        "    pass\n"
+        "\n"
+        "@Client.on_error(ValueError, filters.private, 5)\n"
+        "async def failed(client, error, handler, update):\n"
+        "    pass\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    client = pyrogram.Client("kw", in_memory=True, plugins={"root": "kwplugins"})
+    added = []
+    client.add_handler = lambda handler, group=0: added.append((type(handler).__name__, group, handler))
+
+    client.load_plugins()
+
+    by_kind = {kind: (group, handler) for kind, group, handler in added}
+    assert by_kind["MessageHandler"][0] == 4
+    assert by_kind["MessageHandler"][1].filters is pyrogram.filters.private
+    assert by_kind["ErrorHandler"][0] == 5
+    assert list(by_kind["ErrorHandler"][1].exceptions) == [ValueError]

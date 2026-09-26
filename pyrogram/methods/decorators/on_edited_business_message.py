@@ -51,10 +51,12 @@ class OnEditedBusinessMessage:
                 if not hasattr(func, "handlers"):
                     func.handlers = []
 
+                handler_filters, handler_group = pyrogram.utils.unbound_handler_args(self, filters, group)
+
                 func.handlers.append(
                     (
-                        pyrogram.handlers.EditedBusinessMessageHandler(func, self),
-                        group if filters is None else filters
+                        pyrogram.handlers.EditedBusinessMessageHandler(func, handler_filters),
+                        handler_group
                     )
                 )
 
