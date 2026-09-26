@@ -2111,6 +2111,7 @@ class Client(Methods):
 
             for session in self.media_session_pools.get(dc_id, []):
                 if session.is_started.is_set() or session.is_restarting:
+                    session.last_used = time.monotonic()
                     pool.append(session)
                 else:
                     # dropping it here puts it out of the reaper's reach, and its

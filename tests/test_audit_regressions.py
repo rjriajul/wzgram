@@ -3599,3 +3599,152 @@ async def test_the_chat_and_direction_filters_read_every_update_type(label, upda
     assert bool(await f.admin(None, update)) is bool(chat and chat.is_admin)
     assert bool(await f.chat(-100)(None, update)) is bool(chat and chat.id == -100)
     assert bool(await f.chat([5, -200])(None, update)) is bool(chat and chat.id in (5, -200))
+
+
+def _restartable_session(monkeypatch, connect=None, send=None):
+    from pyrogram.session.session import Session
+
+    from tests.test_session import DummyClient
+
+    made = []
+
+    class _Connection:
+        def __init__(self, *args, **kwargs):
+            made.append(self)
+
+        async def connect(self):
+            if connect is not None:
+                await connect(len(made))
+
+        async def close(self):
+            pass
+
+    async def _send(self, query, *args, **kwargs):
+        if send is not None:
+            return await send(query)
+
+    class _Storage:
+        conn = object()
+        opened = 0
+
+        async def api_id(self):
+            return 1
+
+        async def open(self):
+            self.opened += 1
+
+    monkeypatch.setattr(DummyClient, "connection_factory", _Connection)
+    monkeypatch.setattr(Session, "send", _send)
+    monkeypatch.setattr(Session, "recv_worker", lambda self: asyncio.sleep(3600))
+
+    client = DummyClient()
+    client.storage = _Storage()
+
+    return Session(client, 1, b"\x00" * 256, False, crypto_executor=None), made, client.storage
+
+
+@pytest.mark.parametrize("stop_during", ["storage", "handshake", "backoff"])
+async def test_a_stop_during_a_restart_keeps_the_session_stopped(monkeypatch, stop_during):
+    reached = asyncio.Event()
+    release = asyncio.Event()
+
+    async def connect(attempt):
+        if attempt == 2 and stop_during == "handshake":
+            reached.set()
+            await release.wait()
+
+        if attempt == 2 and stop_during == "backoff":
+            reached.set()
+            raise OSError("down")
+
+    session, made, storage = _restartable_session(monkeypatch, connect)
+    await session.start()
+
+    if stop_during == "storage":
+        async def open_storage():
+            reached.set()
+            await release.wait()
+
+        storage.conn = None
+        storage.open = open_storage
+
+    restarting = asyncio.ensure_future(session.restart())
+
+    await reached.wait()
+    await session.stop()
+
+    release.set()
+    await asyncio.wait_for(restarting, 5)
+
+    assert not session.is_started.is_set()
+    assert len(made) == (1 if stop_during == "storage" else 2)
+    assert session.ping_task.done()
+    assert session.recv_task.done()
+
+
+@pytest.mark.parametrize("in_flight", [False, True])
+async def test_a_request_on_a_stopped_session_does_not_reconnect(monkeypatch, in_flight):
+    from pyrogram import raw
+
+    sending = asyncio.Event()
+    stopped = asyncio.Event()
+
+    async def send(query):
+        if isinstance(query, raw.functions.help.GetConfig):
+            sending.set()
+            await stopped.wait()
+            raise ConnectionResetError("Connection lost while awaiting a response")
+
+    session, made, storage = _restartable_session(monkeypatch, send=send)
+    await session.start()
+
+    if in_flight:
+        request = asyncio.ensure_future(session.invoke(raw.functions.help.GetConfig()))
+        await sending.wait()
+
+    await session.stop()
+    stopped.set()
+    storage.conn = None
+
+    if not in_flight:
+        request = asyncio.ensure_future(session.invoke(raw.functions.help.GetConfig()))
+
+    with pytest.raises(ConnectionError, match="Session is stopped"):
+        await asyncio.wait_for(request, 5)
+
+    assert len(made) == 1
+    assert storage.opened == 0
+    assert not session.is_started.is_set()
+
+
+async def test_a_media_session_handed_out_is_not_reaped_before_its_first_request():
+    import time
+
+    class _MediaSession:
+        results = {}
+        is_restarting = False
+
+        def __init__(self):
+            self.last_used = time.monotonic() - 10_000
+            self.is_started = asyncio.Event()
+            self.is_started.set()
+            self.stopped = False
+
+        async def stop(self):
+            self.stopped = True
+
+    class _Client:
+        _get_media_session_pool = pyrogram.Client._get_media_session_pool
+        reap_media_sessions = pyrogram.Client.reap_media_sessions
+        MEDIA_SESSION_IDLE_TIMEOUT = 300
+
+        def __init__(self):
+            self.media_session_pools = {2: [_MediaSession()]}
+            self._media_sessions_locks = {}
+
+    client = _Client()
+    session = client.media_session_pools[2][0]
+
+    assert await client._get_media_session_pool(2, 1) == [session]
+    assert await client.reap_media_sessions() == 0
+    assert not session.stopped
