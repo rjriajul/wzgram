@@ -3754,7 +3754,7 @@ _EPHEMERAL_SHORTCUTS = ["reply", "answer", "reply_rich", "answer_rich"] + [
     f"{prefix}_{kind}"
     for kind in (
         "animation", "audio", "contact", "document", "location", "live_photo", "photo",
-        "sticker", "venue", "video", "video_note", "voice",
+        "sticker", "venue", "video", "video_note", "voice", "cached_media",
     )
     for prefix in ("reply", "answer")
 ]
@@ -3861,3 +3861,63 @@ async def test_an_ephemeral_message_keeps_a_receiver_missing_from_the_users():
     assert message.receiver_user.id == 7
     assert message._ephemeral_target() == 7
     assert message._reply_receiver_id() == 7
+
+
+_REFUSED_EPHEMERAL_SHORTCUTS = [
+    f"{prefix}_{kind}"
+    for kind in (
+        "poll", "dice", "game", "invoice", "paid_media", "checklist", "media_group",
+        "inline_bot_result",
+    )
+    for prefix in ("reply", "answer")
+]
+
+
+@pytest.mark.parametrize("name", _REFUSED_EPHEMERAL_SHORTCUTS)
+async def test_a_shortcut_that_cannot_be_ephemeral_refuses_an_ephemeral_message(name):
+    message = _shortcut_message(True)
+
+    with pytest.raises(ValueError, match="cannot be sent as an ephemeral message"):
+        await _call_shortcut(message, name)
+
+    assert not message._client.method_calls
+
+
+@pytest.mark.parametrize("name", _REFUSED_EPHEMERAL_SHORTCUTS)
+async def test_a_shortcut_that_cannot_be_ephemeral_still_answers_an_ordinary_message(name):
+    await _call_shortcut(_shortcut_message(False), name)
+
+
+async def test_cached_media_can_be_sent_as_an_ephemeral_message():
+    from unittest.mock import AsyncMock, Mock
+
+    from pyrogram import raw, types
+    from pyrogram.file_id import FileId, FileType
+
+    client = AsyncMock()
+    client.rnd_id = Mock(return_value=1)
+    client.parser.parse = AsyncMock(return_value={"message": "cap", "entities": None})
+    client.resolve_peer = AsyncMock(return_value=raw.types.InputPeerUser(user_id=7, access_hash=0))
+    client.invoke.return_value = Mock(
+        updates=[raw.types.UpdateNewEphemeralMessage(message=raw.types.EphemeralMessage(
+            id=3, from_id=raw.types.PeerUser(user_id=5), receiver_id=7, date=0,
+            message="cap", out=True,
+        ))],
+        users=[raw.types.User(id=5, first_name="b", usernames=[], restriction_reason=[])],
+        chats=[],
+    )
+    file_id = FileId(
+        file_type=FileType.DOCUMENT, dc_id=2, media_id=11, access_hash=12, file_reference=b"r"
+    ).encode()
+
+    sent = await pyrogram.Client.send_cached_media(
+        client, 1, file_id, caption="cap",
+        ephemeral_message_parameters=types.EphemeralMessageParameters(receiver_user_id=7),
+    )
+
+    request = client.invoke.await_args.args[0]
+
+    assert isinstance(request, raw.functions.ephemeral.SendMessage)
+    assert request.media.id.id == 11
+    assert request.message == "cap"
+    assert sent.ephemeral_message_id == 3

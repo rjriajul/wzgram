@@ -135,8 +135,9 @@ From any send method
 *Bot API 10.3 — August 2026*
 
 Bot API 10.3 sends an ephemeral message by adding ``ephemeral_message_parameters`` to an
-ordinary send method rather than by calling a separate one, so every send method takes it —
-:meth:`~pyrogram.Client.send_message` and the twelve that send media:
+ordinary send method rather than by calling a separate one. :meth:`~pyrogram.Client.send_message`,
+:meth:`~pyrogram.Client.send_rich_message`, :meth:`~pyrogram.Client.send_cached_media` and the
+twelve that send one kind of media take it:
 
 .. code-block:: python
 
@@ -243,6 +244,12 @@ message:
 
 A reply quotes the message when it came from the other side. Telegram refuses a quote of an
 ephemeral message you sent yourself, so a reply to one of those is sent without the quote.
+
+Polls, dice, games, invoices, paid media, checklists, media groups and inline bot results
+cannot be ephemeral: Telegram refuses them in ``ephemeral.sendMessage`` or strips them from it.
+Their ``reply_*`` and ``answer_*`` shortcuts raise :class:`ValueError` on an ephemeral message
+rather than post the answer to a private message for the whole chat. Call the client method,
+such as :meth:`~pyrogram.Client.send_poll`, to post one publicly on purpose.
 
 Deleting one
 ------------

@@ -6,6 +6,8 @@ from pyrogram import raw, enums
 from pyrogram import types
 from pyrogram import utils
 
+from ..ephemeral.as_ephemeral import as_ephemeral
+
 
 class SendCachedMedia:
     async def send_cached_media(
@@ -44,6 +46,7 @@ class SendCachedMedia:
         update_stickersets_order: Optional[bool] = None,
         send_as: Optional[Union[int, str]] = None,
         quick_reply_shortcut: Optional[int] = None,
+        ephemeral_message_parameters: Optional["types.EphemeralMessageParameters"] = None,
     ) -> Optional["types.Message"]:
         """Send any media stored on the Telegram servers using a file_id.
 
@@ -148,6 +151,16 @@ class SendCachedMedia:
             quick_reply_shortcut (``int``, *optional*):
                 Unique identifier of the quick reply shortcut the message belongs to.
 
+            ephemeral_message_parameters (:obj:`~pyrogram.types.EphemeralMessageParameters`, *optional*):
+                Send the message as an ephemeral message, visible only to the user it
+                names and absent from the chat's history, rather than as an ordinary one.
+                The ephemeral RPC has no field for *silent*, *background*, *clear_draft*,
+                *schedule_date*, *repeat_period*, *send_as*, *effect_id*,
+                *quick_reply_shortcut*, *allow_paid_broadcast*,
+                *paid_message_star_count*, *suggested_post_parameters* or
+                *update_stickersets_order*; any of those that is set is logged and
+                dropped.
+
         Returns:
             :obj:`~pyrogram.types.Message`: On success, the sent media message is returned.
 
@@ -176,7 +189,7 @@ class SendCachedMedia:
         text_params = await utils.parse_text_entities(self, caption, parse_mode, caption_entities)
 
         r = await self.invoke(
-            raw.functions.messages.SendMedia(
+            await as_ephemeral(self, ephemeral_message_parameters, raw.functions.messages.SendMedia(
                 peer=await self.resolve_peer(chat_id),
                 media=utils.get_input_media_from_file_id(file_id, has_spoiler=has_spoiler),
                 silent=disable_notification if disable_notification is not None else None,
@@ -202,7 +215,7 @@ class SendCachedMedia:
                 send_as=await self.resolve_peer(send_as) if send_as is not None else None,
                 quick_reply_shortcut=raw.types.InputQuickReplyShortcutId(shortcut_id=quick_reply_shortcut) if quick_reply_shortcut is not None else None,
                 **text_params
-            ),
+            )),
             sleep_threshold=60,
             business_connection_id=business_connection_id
         )
@@ -210,7 +223,8 @@ class SendCachedMedia:
         for i in r.updates:
             if isinstance(i, (raw.types.UpdateNewMessage,
                               raw.types.UpdateNewChannelMessage,
-                              raw.types.UpdateNewScheduledMessage)):
+                              raw.types.UpdateNewScheduledMessage,
+                              raw.types.UpdateNewEphemeralMessage)):
                 return await types.Message._parse(
                     self, i.message,
                     {i.id: i for i in r.users},
