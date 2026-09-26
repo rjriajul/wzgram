@@ -3992,3 +3992,224 @@ async def test_an_ephemeral_message_without_media_keeps_its_text():
 
     assert message.text == "hi"
     assert message.caption is None and message.media is None
+
+
+class _GapClient:
+    def __init__(self, states, replies):
+        from pyrogram.methods.advanced.recover_gaps import RecoverGaps
+
+        self.recover_gaps = RecoverGaps.recover_gaps.__get__(self)
+        self.skip_updates = False
+        self.sent = []
+        self.written = []
+        self.enqueued = []
+        self.replies = list(replies)
+
+        outer = self
+
+        class _Storage:
+            async def update_state(self, value=object):
+                if value is object:
+                    return list(states)
+                outer.written.append(value)
+
+        class _Dispatcher:
+            async def enqueue_update(self, update, users, chats):
+                outer.enqueued.append(update)
+                return True
+
+        self.storage = _Storage()
+        self.dispatcher = _Dispatcher()
+
+    async def resolve_peer(self, peer_id):
+        from pyrogram import raw
+
+        return raw.types.InputChannel(channel_id=1, access_hash=0)
+
+    async def invoke(self, query, **kwargs):
+        self.sent.append(query)
+
+        return self.replies.pop(0)
+
+
+def _channel_message(message_id):
+    from pyrogram import raw
+
+    return raw.types.Message(
+        id=message_id, peer_id=raw.types.PeerChannel(channel_id=1), date=0, message="m",
+        entities=[], restriction_reason=[],
+    )
+
+
+async def test_a_partial_channel_difference_is_fetched_to_the_end():
+    from pyrogram import raw
+
+    client = _GapClient([(-1000000000001, 100, None, 7, 1)], [
+        raw.types.updates.ChannelDifference(
+            final=False, pts=200, new_messages=[_channel_message(1)], other_updates=[], chats=[], users=[]
+        ),
+        raw.types.updates.ChannelDifference(
+            final=True, pts=300, new_messages=[_channel_message(2)], other_updates=[], chats=[], users=[]
+        ),
+    ])
+
+    assert await client.recover_gaps() == (2, 0)
+    assert [query.pts for query in client.sent] == [100, 200]
+    assert client.written[-1][:2] == (-1000000000001, 300)
+
+
+async def test_a_partial_channel_difference_that_does_not_move_stops():
+    from pyrogram import raw
+
+    client = _GapClient([(-1000000000001, 100, None, 7, 1)], [
+        raw.types.updates.ChannelDifference(
+            final=False, pts=100, new_messages=[], other_updates=[], chats=[], users=[]
+        ),
+    ])
+
+    await asyncio.wait_for(client.recover_gaps(), timeout=5)
+
+    assert len(client.sent) == 1
+
+
+def _state(pts, qts):
+    from pyrogram import raw
+
+    return raw.types.updates.State(pts=pts, qts=qts, date=9, seq=3, unread_count=0)
+
+
+async def test_the_common_difference_asks_from_the_stored_qts_and_keeps_the_new_one():
+    from pyrogram import raw
+
+    client = _GapClient([(0, 10, 50, 7, 1)], [
+        raw.types.updates.Difference(
+            new_messages=[], new_encrypted_messages=[], other_updates=[raw.types.UpdateBotStopped(
+                user_id=1, date=0, stopped=True, qts=60
+            )], chats=[], users=[], state=_state(10, 60)
+        ),
+    ])
+
+    assert await client.recover_gaps() == (0, 1)
+    assert client.sent[0].qts == 50
+    assert client.written[-1] == (0, 10, 60, 9, 3)
+
+
+async def test_an_empty_common_difference_keeps_the_stored_qts():
+    from pyrogram import raw
+
+    client = _GapClient([(0, 10, 50, 7, 1)], [raw.types.updates.DifferenceEmpty(date=8, seq=2)])
+
+    await client.recover_gaps()
+
+    assert all(state[2] == 50 for state in client.written)
+
+
+async def test_a_difference_slice_that_only_moves_qts_is_followed():
+    from pyrogram import raw
+
+    client = _GapClient([(0, 10, 50, 7, 1)], [
+        raw.types.updates.DifferenceSlice(
+            new_messages=[], new_encrypted_messages=[], other_updates=[], chats=[], users=[],
+            intermediate_state=_state(10, 55),
+        ),
+        raw.types.updates.Difference(
+            new_messages=[], new_encrypted_messages=[], other_updates=[], chats=[], users=[],
+            state=_state(10, 60),
+        ),
+    ])
+
+    await client.recover_gaps()
+
+    assert [query.qts for query in client.sent] == [50, 55]
+    assert client.written[-1][2] == 60
+
+
+async def test_a_difference_slice_that_does_not_move_is_read_once():
+    from pyrogram import raw
+
+    client = _GapClient([(0, 10, 50, 7, 1)], [
+        raw.types.updates.DifferenceSlice(
+            new_messages=[_channel_message(1)], new_encrypted_messages=[], other_updates=[], chats=[],
+            users=[], intermediate_state=_state(10, 50),
+        ),
+    ])
+
+    assert await asyncio.wait_for(client.recover_gaps(), timeout=5) == (1, 0)
+    assert len(client.sent) == 1
+
+
+async def test_a_common_state_known_only_by_qts_is_recovered_from_the_current_pts():
+    from pyrogram import raw
+
+    client = _GapClient([(0, None, 50, None, None)], [
+        _state(40, 70),
+        raw.types.updates.DifferenceEmpty(date=8, seq=2),
+    ])
+
+    await client.recover_gaps()
+
+    assert isinstance(client.sent[0], raw.functions.updates.GetState)
+    assert (client.sent[1].pts, client.sent[1].qts) == (40, 50)
+
+
+async def test_a_channel_state_without_pts_is_still_skipped():
+    client = _GapClient([(-1000000000001, None, 50, None, None)], [])
+
+    await client.recover_gaps()
+
+    assert client.sent == []
+
+
+class _QtsClient:
+    handle_updates = pyrogram.Client.handle_updates
+
+    def __init__(self):
+        self.states = []
+
+        outer = self
+
+        class _Storage:
+            async def update_state(self, value=object):
+                outer.states.append(value)
+
+        class _Dispatcher:
+            async def enqueue_update(self, update, users, chats):
+                return True
+
+        self.storage = _Storage()
+        self.dispatcher = _Dispatcher()
+
+    async def fetch_peers(self, peers):
+        return False
+
+
+async def test_the_highest_qts_of_a_batch_is_stored_in_the_common_state():
+    from pyrogram import raw
+
+    client = _QtsClient()
+
+    await client.handle_updates(raw.types.Updates(
+        updates=[
+            raw.types.UpdateBotStopped(user_id=1, date=0, stopped=True, qts=41),
+            raw.types.UpdateChannelParticipant(
+                channel_id=5, date=0, actor_id=1, user_id=2, qts=43
+            ),
+            raw.types.UpdateBotStopped(user_id=1, date=0, stopped=False, qts=42),
+            raw.types.UpdateNewMessage(message=raw.types.MessageEmpty(id=1), pts=9, pts_count=1),
+        ],
+        users=[], chats=[], date=1700000000, seq=4,
+    ))
+
+    assert client.states == [(0, 9, 43, 1700000000, 4)]
+
+
+async def test_a_short_update_with_qts_is_stored_in_the_common_state():
+    from pyrogram import raw
+
+    client = _QtsClient()
+
+    await client.handle_updates(raw.types.UpdateShort(
+        update=raw.types.UpdateBotStopped(user_id=1, date=0, stopped=True, qts=77), date=1700000000
+    ))
+
+    assert client.states == [(0, None, 77, 1700000000, None)]

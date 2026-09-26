@@ -120,7 +120,10 @@ class FakeRemote(RemoteStorage):
 
     async def _save_state(self, state):
         self.writes += 1
-        self.states[state[0]] = tuple(state)
+        stored = self.states.get(state[0], (state[0], None, None, None, None))
+        self.states[state[0]] = tuple(
+            new if new is not None else old for new, old in zip(state, stored)
+        )
 
     async def _delete_state(self, state_id):
         self.writes += 1
@@ -283,6 +286,13 @@ class TestUpdateState:
 
         assert len(states) == 1
         assert tuple(states[0])[1] == 200
+
+    async def test_a_field_left_out_is_kept(self, storage):
+        await storage.update_state((0, 100, 50, 1600000000, 5))
+        await storage.update_state((0, 120, None, 1600000001, None))
+        await storage.update_state((0, None, 60, None, None))
+
+        assert [tuple(s) for s in await storage.update_state()] == [(0, 120, 60, 1600000001, 5)]
 
     async def test_delete_by_id(self, storage):
         await storage.update_state((1, 100, 0, 1600000000, 5))

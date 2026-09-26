@@ -73,16 +73,21 @@ class RecoverGaps:
         for local_state in states:
             id, local_pts, local_qts, local_date, local_seq = local_state
 
-            if local_pts is None:
+            if local_pts is None and (id != 0 or local_qts is None):
                 continue
 
-            prev_pts = 0
             stale_attempts = 0
             unusable = False
             failed = False
 
             while True:
                 try:
+                    if local_pts is None:
+                        state = await self.invoke(raw.functions.updates.GetState())
+                        local_pts, local_date, local_seq = state.pts, state.date, state.seq
+
+                    request = (local_pts, local_qts)
+
                     diff = await self.invoke(
                         raw.functions.updates.GetChannelDifference(
                             channel=await self.resolve_peer(id),
@@ -94,7 +99,7 @@ class RecoverGaps:
                         raw.functions.updates.GetDifference(
                             pts=local_pts,
                             date=local_date,
-                            qts=0
+                            qts=local_qts or 0
                         )
                     )
                 except (ChannelPrivate, ChannelInvalid, PeerIdInvalid):
@@ -127,7 +132,7 @@ class RecoverGaps:
                         (
                             id,
                             local_pts,
-                            None,
+                            local_qts,
                             diff.date,
                             diff.seq
                         )
@@ -139,7 +144,7 @@ class RecoverGaps:
                         (
                             id,
                             local_pts,
-                            None,
+                            local_qts,
                             local_date,
                             local_seq
                         )
@@ -147,23 +152,20 @@ class RecoverGaps:
                     continue
                 elif isinstance(diff, raw.types.updates.Difference):
                     local_pts = diff.state.pts
+                    local_qts = diff.state.qts
                     local_date = diff.state.date
                     local_seq = diff.state.seq
                 elif isinstance(diff, raw.types.updates.DifferenceSlice):
                     local_pts = diff.intermediate_state.pts
+                    local_qts = diff.intermediate_state.qts
                     local_date = diff.intermediate_state.date
                     local_seq = diff.intermediate_state.seq
-
-                    if prev_pts == local_pts:
-                        break
-
-                    prev_pts = local_pts
                 elif isinstance(diff, raw.types.updates.ChannelDifferenceEmpty):
                     await self.storage.update_state(
                         (
                             id,
                             diff.pts,
-                            None,
+                            local_qts,
                             local_date,
                             local_seq
                         )
@@ -175,7 +177,7 @@ class RecoverGaps:
                         (
                             id,
                             local_pts,
-                            None,
+                            local_qts,
                             local_date,
                             local_seq
                         )
@@ -203,7 +205,13 @@ class RecoverGaps:
                     other_updates_counter += 1
                     await self.dispatcher.enqueue_update(update, users, chats)
 
-                if isinstance(diff, (raw.types.updates.Difference, raw.types.updates.ChannelDifference)):
+                if isinstance(diff, raw.types.updates.Difference):
+                    break
+
+                if isinstance(diff, raw.types.updates.ChannelDifference) and diff.final:
+                    break
+
+                if (local_pts, local_qts) == request:
                     break
 
             if failed:
@@ -217,7 +225,7 @@ class RecoverGaps:
                 (
                     id,
                     local_pts,
-                    None,
+                    local_qts,
                     local_date,
                     local_seq
                 )

@@ -274,27 +274,29 @@ class RedisStorage(RemoteStorage):
             stored = {_decode(k): _decode(v) for k, v in stored.items()}
 
             states.append(
-                (
-                    state_id,
-                    int(stored.get("pts") or 0),
-                    int(stored.get("qts") or 0),
-                    int(stored.get("date") or 0),
-                    int(stored.get("seq") or 0),
+                (state_id,) + tuple(
+                    int(stored[field]) if stored.get(field) not in (None, "") else None
+                    for field in ("pts", "qts", "date", "seq")
                 )
             )
 
-        states.sort(key=lambda state: state[3])
+        states.sort(key=lambda state: state[3] or 0)
 
         return states
 
     async def _save_state(self, state: Tuple[int, int, int, int, int]) -> None:
         state_id, pts, qts, date, seq = state
+        mapping = {
+            field: value
+            for field, value in zip(("pts", "qts", "date", "seq"), (pts, qts, date, seq))
+            if value is not None
+        }
+
+        if not mapping:
+            return
 
         pipe = self._redis.pipeline()
-        pipe.hset(
-            self._key("state", state_id),
-            mapping={"pts": pts, "qts": qts, "date": date, "seq": seq},
-        )
+        pipe.hset(self._key("state", state_id), mapping=mapping)
         pipe.sadd(self._key("states"), state_id)
 
         await pipe.execute()

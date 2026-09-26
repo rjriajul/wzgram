@@ -241,12 +241,16 @@ class MongoStorage(RemoteStorage):
 
     async def _save_state(self, state: Tuple[int, int, int, int, int]) -> None:
         state_id, pts, qts, date, seq = state
+        fields = {
+            field: value
+            for field, value in zip(("pts", "qts", "date", "seq"), (pts, qts, date, seq))
+            if value is not None
+        }
 
-        await self._states.update_one(
-            {"_id": state_id},
-            {"$set": {"pts": pts, "qts": qts, "date": date, "seq": seq}},
-            upsert=True,
-        )
+        if not fields:
+            return
+
+        await self._states.update_one({"_id": state_id}, {"$set": fields}, upsert=True)
 
     async def _delete_state(self, state_id: int) -> None:
         await self._states.delete_one({"_id": state_id})

@@ -420,10 +420,10 @@ class SQLiteStorage(Storage):
                 await self.conn.execute(
                     "INSERT INTO update_state (id, pts, qts, date, seq) VALUES (?, ?, ?, ?, ?) "
                     "ON CONFLICT(id) DO UPDATE SET "
-                    "  pts   = excluded.pts,"
-                    "  qts   = excluded.qts,"
-                    "  date  = excluded.date,"
-                    "  seq   = excluded.seq",
+                    "  pts   = COALESCE(excluded.pts, pts),"
+                    "  qts   = COALESCE(excluded.qts, qts),"
+                    "  date  = COALESCE(excluded.date, date),"
+                    "  seq   = COALESCE(excluded.seq, seq)",
                     value,
                 )
 

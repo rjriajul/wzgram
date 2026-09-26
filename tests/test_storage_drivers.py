@@ -32,6 +32,9 @@ class FakeCollection:
         return None
 
     async def update_one(self, query, update, upsert=False):
+        if not update.get("$set"):
+            raise ValueError("'$set' is empty. You must specify a field like so: {$set: {<field>: ...}}")
+
         key = query["_id"]
         document = self.documents.get(key)
 
@@ -131,6 +134,17 @@ class TestMongoMapping:
         assert "phone_number" in mongo._peers.indexes
         assert "peer_id" in mongo._usernames.indexes
 
+    async def test_a_state_field_left_out_is_kept(self, mongo):
+        await mongo.update_state((0, 10, 50, 7, 1))
+        await mongo.update_state((0, 11, None, 8, None))
+
+        assert [tuple(s) for s in await mongo.update_state()] == [(0, 11, 50, 8, 1)]
+
+    async def test_a_state_with_nothing_to_store_is_skipped(self, mongo):
+        await mongo.update_state((0, None, None, None, None))
+
+        assert list(await mongo.update_state()) == []
+
     async def test_version_is_recorded(self, mongo):
         assert await mongo.version() == MongoStorage.VERSION
 
@@ -183,7 +197,14 @@ class FakeRedis:
         return {"maxmemory-policy": "noeviction"}
 
     async def hset(self, key, mapping=None, **kwargs):
-        self.hashes.setdefault(key, {}).update(mapping or {})
+        if not mapping:
+            raise ValueError("'hset' with no key value pairs")
+
+        for value in mapping.values():
+            if value is None:
+                raise TypeError("Invalid input of type: 'NoneType'. Convert to a bytes, string, int or float first.")
+
+        self.hashes.setdefault(key, {}).update(mapping)
 
     async def hgetall(self, key):
         return dict(self.hashes.get(key, {}))
@@ -264,6 +285,22 @@ class TestRedisMapping:
         assert [tuple(s) for s in await redis.update_state()] == [(7, 100, 0, 1600000000, 3)]
 
         await redis.update_state(7)
+
+        assert list(await redis.update_state()) == []
+
+    async def test_a_state_field_left_out_is_kept(self, redis):
+        await redis.update_state((0, 10, 50, 7, 1))
+        await redis.update_state((0, 11, None, 8, None))
+
+        assert [tuple(s) for s in await redis.update_state()] == [(0, 11, 50, 8, 1)]
+
+    async def test_a_state_never_given_a_field_reads_it_as_none(self, redis):
+        await redis.update_state((0, None, 50, 7, None))
+
+        assert [tuple(s) for s in await redis.update_state()] == [(0, None, 50, 7, None)]
+
+    async def test_a_state_with_nothing_to_store_is_skipped(self, redis):
+        await redis.update_state((0, None, None, None, None))
 
         assert list(await redis.update_state()) == []
 

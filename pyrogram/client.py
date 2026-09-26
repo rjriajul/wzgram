@@ -1104,13 +1104,20 @@ class Client(Methods):
 
                 pts = getattr(update, "pts", None)
                 pts_count = getattr(update, "pts_count", None)
+                qts = getattr(update, "qts", None)
 
                 if pts:
                     key = utils.get_channel_id(channel_id) if channel_id else 0
-                    known = pending_states.get(key)
+                    known = pending_states.get(key, (key, None, None, updates.date, updates.seq))
 
-                    if known is None or pts > known[1]:
-                        pending_states[key] = (key, pts, None, updates.date, updates.seq)
+                    if known[1] is None or pts > known[1]:
+                        pending_states[key] = (key, pts) + known[2:]
+
+                if qts:
+                    known = pending_states.get(0, (0, None, None, updates.date, updates.seq))
+
+                    if known[2] is None or qts > known[2]:
+                        pending_states[0] = known[:2] + (qts,) + known[3:]
 
                 if isinstance(update, raw.types.UpdateChannelTooLong):
                     log.info(update)
@@ -1179,6 +1186,11 @@ class Client(Methods):
                     await self.dispatcher.enqueue_update(diff.other_updates[0], {}, {})
         elif isinstance(updates, raw.types.UpdateShort):
             await self.dispatcher.enqueue_update(updates.update, {}, {})
+
+            qts = getattr(updates.update, "qts", None)
+
+            if qts:
+                await self.storage.update_state((0, None, qts, updates.date, None))
         elif isinstance(updates, raw.types.UpdatesTooLong):
             log.info(updates)
 
