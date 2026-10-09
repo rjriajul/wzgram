@@ -107,12 +107,12 @@ def _collect_mentioned_user_ids(blocks) -> List[int]:
         if isinstance(obj, raw.types.TextMentionName):
             user_ids.append(obj.user_id)
 
-        if isinstance(obj, raw.core.TLObject):
+        if isinstance(obj, (list, tuple)):
+            values = obj
+        elif isinstance(obj, raw.core.TLObject):
             values = (getattr(obj, slot, None) for slot in obj.__slots__)
         elif isinstance(obj, Object):
             values = vars(obj).values()
-        elif isinstance(obj, (list, tuple)):
-            values = obj
         else:
             return
 

@@ -6248,10 +6248,24 @@ def test_mentions_are_deduplicated_across_blocks():
 
     blocks = [
         InputRichBlockParagraph(text=_mention(333)),
-        InputRichBlockList(items=[InputRichBlockListItem(text=_mention(333))]),
+        InputRichBlockList(items=[
+            InputRichBlockListItem(text=_mention(444)),
+            InputRichBlockListItem(text=_mention(333)),
+        ]),
     ]
 
-    assert _collect_mentioned_user_ids(blocks) == [333]
+    assert _collect_mentioned_user_ids(blocks) == [333, 444]
+
+
+def test_a_mention_inside_received_rich_text_is_collected():
+    from pyrogram.types.input_content.input_rich_block import (
+        InputRichBlockParagraph,
+        _collect_mentioned_user_ids,
+    )
+
+    text = raw.types.TextConcat(texts=raw.core.List([raw.types.TextPlain(text="hi "), _mention(555)]))
+
+    assert _collect_mentioned_user_ids([InputRichBlockParagraph(text=text)]) == [555]
 
 
 class _TooLongClient:
