@@ -251,7 +251,8 @@ class SaveFile:
 
             next_batch_task = None
             _pacer = AdaptiveBucket(
-                rate=rate_limit, ceiling=max(rate_limit, 300), burst=PACER_BURST, step=1.0
+                rate=rate_limit, ceiling=max(rate_limit, 300), burst=PACER_BURST, step=1.0,
+                backoff=1.0 if is_premium and not is_bot else 0.85,
             )
             _stalled_since = 0.0
             _last_reported = -1

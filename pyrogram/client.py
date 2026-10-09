@@ -1653,7 +1653,8 @@ class Client(Methods):
                 _done_count = 0
                 _total_chunks = 0
                 _getfile_rate = AdaptiveBucket(
-                    rate=dl_rate, ceiling=max(dl_rate, 150), burst=dl_burst
+                    rate=dl_rate, ceiling=max(dl_rate, 150), burst=dl_burst,
+                    backoff=1.0 if _is_premium and not _is_bot else 0.85,
                 )
 
                 async def _worker(session):
