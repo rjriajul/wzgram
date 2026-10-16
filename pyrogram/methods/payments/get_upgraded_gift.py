@@ -27,7 +27,7 @@ class GetUpgradedGift:
     ) -> "types.Gift":
         """Get information about upgraded gift.
 
-        .. include:: /_includes/usable-by/users.rst
+        .. include:: /_includes/usable-by/users-bots.rst
 
         Parameters:
             link (``str``):
