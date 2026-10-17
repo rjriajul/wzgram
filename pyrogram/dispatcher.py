@@ -151,6 +151,8 @@ class Dispatcher:
         self.relief_workers = set()
         self.parked = 0
         self.relief_capped = False
+        self.starting = False
+        self.unread_warned = False
 
         async def message_parser(update, users, chats):
             return (
@@ -361,6 +363,17 @@ class Dispatcher:
         except asyncio.QueueFull:
             pass
 
+        if not self.handler_worker_tasks and not self.starting:
+            if not self.unread_warned:
+                self.unread_warned = True
+                log.warning(
+                    "Dropping updates: no handler worker is running to read them. "
+                    "Start the client with `start()` and `workers` above 0, or pass "
+                    "`no_updates=True` to stop receiving them."
+                )
+
+            return False
+
         try:
             await asyncio.wait_for(
                 self.updates_queue.put((update, users, chats)),
@@ -378,24 +391,30 @@ class Dispatcher:
             return True
 
     async def start(self):
-        if callable(self.client.start_handler):
-            try:
-                await self.client.start_handler(self.client)
-            except Exception as e:
-                log.exception(e)
+        self.starting = True
+        self.unread_warned = False
 
-        if not self.client.no_updates:
-            for i in range(self.client.workers):
-                self.locks_list.append(asyncio.Lock())
+        try:
+            if callable(self.client.start_handler):
+                try:
+                    await self.client.start_handler(self.client)
+                except Exception as e:
+                    log.exception(e)
 
-                self.handler_worker_tasks.append(
-                    self.client.loop.create_task(self.handler_worker(self.locks_list[-1]))
-                )
+            if not self.client.no_updates:
+                for i in range(self.client.workers):
+                    self.locks_list.append(asyncio.Lock())
 
-            log.info("Started %s HandlerTasks", self.client.workers)
+                    self.handler_worker_tasks.append(
+                        self.client.loop.create_task(self.handler_worker(self.locks_list[-1]))
+                    )
 
-            if not self.client.skip_updates:
-                await self.client.recover_gaps()
+                log.info("Started %s HandlerTasks", self.client.workers)
+
+                if not self.client.skip_updates:
+                    await self.client.recover_gaps()
+        finally:
+            self.starting = False
 
     def prune_workers(self):
         self.handler_worker_tasks = [

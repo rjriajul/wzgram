@@ -640,6 +640,7 @@ async def test_an_update_is_queued_when_there_is_room():
 
 async def test_a_full_queue_waits_for_room_instead_of_raising(monkeypatch):
     dispatcher = make_dispatcher()
+    dispatcher.handler_worker_tasks.append(asyncio.Future())
     monkeypatch.setattr(Dispatcher, "ENQUEUE_TIMEOUT", 5)
 
     for _ in range(dispatcher.updates_queue.maxsize):
@@ -656,6 +657,7 @@ async def test_a_full_queue_waits_for_room_instead_of_raising(monkeypatch):
 
 async def test_a_permanently_full_queue_drops_and_says_so(monkeypatch, caplog):
     dispatcher = make_dispatcher()
+    dispatcher.handler_worker_tasks.append(asyncio.Future())
     monkeypatch.setattr(Dispatcher, "ENQUEUE_TIMEOUT", 0.05)
 
     for _ in range(dispatcher.updates_queue.maxsize):
@@ -666,6 +668,55 @@ async def test_a_permanently_full_queue_drops_and_says_so(monkeypatch, caplog):
 
     assert queued is False
     assert "Dropping" in caplog.text, "a dropped update must not be silent"
+
+
+async def test_a_full_queue_with_no_handler_workers_drops_at_once_and_warns_once(monkeypatch, caplog):
+    dispatcher = make_dispatcher()
+    monkeypatch.setattr(Dispatcher, "ENQUEUE_TIMEOUT", 5)
+
+    for _ in range(dispatcher.updates_queue.maxsize):
+        dispatcher.updates_queue.put_nowait(("filler", {}, {}))
+
+    with caplog.at_level("WARNING"):
+        results = await asyncio.wait_for(
+            asyncio.gather(*(dispatcher.enqueue_update("late", {}, {}) for _ in range(3))),
+            timeout=1
+        )
+
+    assert results == [False, False, False]
+    assert caplog.text.count("no handler worker is running") == 1
+    assert "cannot keep up" not in caplog.text
+
+
+async def test_a_full_queue_waits_while_the_start_handler_runs(monkeypatch):
+    monkeypatch.setattr(Dispatcher, "ENQUEUE_TIMEOUT", 5)
+    release = asyncio.Event()
+    entered = asyncio.Event()
+
+    async def start_handler(_):
+        entered.set()
+        await release.wait()
+
+    dispatcher = make_dispatcher(skip_updates=True, loop=asyncio.get_running_loop())
+    dispatcher.client.start_handler = start_handler
+
+    for _ in range(dispatcher.updates_queue.maxsize):
+        dispatcher.updates_queue.put_nowait(("filler", {}, {}))
+
+    starting = asyncio.ensure_future(dispatcher.start())
+    await entered.wait()
+
+    pending = asyncio.ensure_future(dispatcher.enqueue_update("late", {}, {}))
+    await asyncio.sleep(0.05)
+    assert not pending.done()
+
+    await dispatcher.updates_queue.get()
+    assert await asyncio.wait_for(pending, timeout=2) is True
+
+    release.set()
+    await starting
+    assert dispatcher.starting is False
+    await dispatcher.stop()
 
 
 async def test_the_updates_queue_stays_bounded():
