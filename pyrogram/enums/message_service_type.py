@@ -243,6 +243,12 @@ class MessageServiceType(AutoName):
     COMMUNITY_CHAT_JOINED = auto()
     "Chat joined by a user from a community"
 
+    TON_WALLET_TRANSFER = auto()
+    "TON wallet transfer"
+
+    TON_CONNECT_REQUEST = auto()
+    "TON Connect request"
+
     CONFERENCE_CALL = auto()
     "Conference call"
 

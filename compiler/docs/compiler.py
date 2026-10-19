@@ -900,6 +900,8 @@ def pyrogram_api():
             SuggestedPostPrice
             SuggestedPostRefunded
             TextQuote
+            TonConnectRequest
+            TonWalletTransfer
             UpgradedGiftAttributeId
             UpgradedGiftAttributeIdBackdrop
             UpgradedGiftAttributeIdModel

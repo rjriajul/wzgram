@@ -199,6 +199,8 @@ from .suggested_post_price import SuggestedPostPrice, SuggestedPostPriceStar, Su
 from .suggested_post_refunded import SuggestedPostRefunded
 from .text_quote import TextQuote
 from .thumbnail import Thumbnail
+from .ton_connect_request import TonConnectRequest
+from .ton_wallet_transfer import TonWalletTransfer
 from .upgraded_gift_attribute_id import UpgradedGiftAttributeId
 from .upgraded_gift_attribute_id_backdrop import UpgradedGiftAttributeIdBackdrop
 from .upgraded_gift_attribute_id_model import UpgradedGiftAttributeIdModel
@@ -414,6 +416,8 @@ __all__ = [
     "SuggestedPostRefunded",
     "TextQuote",
     "Thumbnail",
+    "TonConnectRequest",
+    "TonWalletTransfer",
     "UpgradedGiftAttributeId",
     "UpgradedGiftAttributeIdBackdrop",
     "UpgradedGiftAttributeIdModel",

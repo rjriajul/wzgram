@@ -1931,3 +1931,48 @@ async def test_giveaway_winners_parse_when_the_launch_message_is_gone():
 
     assert winners.giveaway_message_id == 5
     assert winners.giveaway_message is None
+
+
+def _service(action):
+    return raw.types.MessageService(
+        id=3,
+        from_id=raw.types.PeerUser(user_id=1),
+        peer_id=raw.types.PeerUser(user_id=2),
+        date=0,
+        action=action
+    )
+
+
+async def test_a_gram_transfer_becomes_a_ton_wallet_transfer():
+    users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Receiver")}
+    action = raw.types.MessageActionGramTransfer(
+        amount=5, peer_address="UQabc", transaction_id="tx1", comment="hi", comment_encrypted=True
+    )
+
+    parsed = await types.Message._parse(MagicMock(), _service(action), users, {})
+
+    assert parsed.service == enums.MessageServiceType.TON_WALLET_TRANSFER
+    transfer = parsed.ton_wallet_transfer
+    assert (transfer.amount, transfer.peer_address, transfer.comment) == (5, "UQabc", "hi")
+    assert transfer.is_comment_encrypted is True
+    assert transfer.sender.id == 1
+    assert transfer.link == "https://tonviewer.com/transaction/tx1"
+
+
+@pytest.mark.parametrize(
+    ("accepted", "declined"),
+    [(None, None), (True, None), (None, True)]
+)
+async def test_a_ton_connect_request_keeps_its_state(accepted, declined):
+    users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Receiver")}
+    action = raw.types.MessageActionWalletTonConnectRequest(
+        session_id=9, expires=1700000000, accepted=accepted, declined=declined, dapp_name="dapp"
+    )
+
+    parsed = await types.Message._parse(MagicMock(), _service(action), users, {})
+
+    assert parsed.service == enums.MessageServiceType.TON_CONNECT_REQUEST
+    request = parsed.ton_connect_request
+    assert (request.session_id, request.dapp_name) == (9, "dapp")
+    assert (request.is_accepted, request.is_declined) == (accepted, declined)
+    assert request.expiration_date.timestamp() == 1700000000
