@@ -1976,3 +1976,12 @@ async def test_a_ton_connect_request_keeps_its_state(accepted, declined):
     assert (request.session_id, request.dapp_name) == (9, "dapp")
     assert (request.is_accepted, request.is_declined) == (accepted, declined)
     assert request.expiration_date.timestamp() == 1700000000
+
+
+def test_the_sender_is_the_user_or_else_the_chat():
+    user = types.User(id=1)
+    chat = types.Chat(id=-100)
+
+    assert types.Message(id=1, from_user=user, sender_chat=chat).sender is user
+    assert types.Message(id=1, sender_chat=chat).sender is chat
+    assert types.Message(id=1).sender is None

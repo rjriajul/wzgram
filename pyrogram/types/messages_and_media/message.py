@@ -689,6 +689,9 @@ class Message(Object, Update):
         content (``str``, *property*):
             The text or caption content of the message.
 
+        sender (:obj:`~pyrogram.types.User` | :obj:`~pyrogram.types.Chat`, *property*):
+            The sender of the message: ``from_user``, or ``sender_chat`` when there is no user.
+
         community_chat_added (:obj:`~pyrogram.types.CommunityChatAdded`, *optional*):
             Service message: a chat was added to the community.
 
@@ -2287,6 +2290,10 @@ class Message(Object, Update):
                 return f"https://t.me/c/{utils.get_channel_id(self.chat.id)}/{self.message_thread_id}/{self.id}"
             else:
                 return f"https://t.me/c/{utils.get_channel_id(self.chat.id)}/{self.id}"
+
+    @property
+    def sender(self) -> Optional[Union["types.User", "types.Chat"]]:
+        return self.from_user or self.sender_chat
 
     @property
     def content(self) -> Str:
