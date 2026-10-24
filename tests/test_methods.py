@@ -1789,3 +1789,13 @@ async def test_get_messages_sends_message_id_zero(kwargs):
 
     assert await GetMessages.get_messages(client, "me", **kwargs) is None
     assert client.invoke.await_args.args[0].id[0].id == 0
+
+
+async def test_deleting_a_gift_sends_the_saved_gift():
+    client = FakeClient([True])
+    client.SAVED_GIFT_RE = pyrogram.Client.SAVED_GIFT_RE
+    client.UPGRADED_GIFT_RE = pyrogram.Client.UPGRADED_GIFT_RE
+
+    assert await pyrogram.Client.delete_gift(client, "https://t.me/nft/abc-1") is True
+    assert isinstance(client.sent[0], raw.functions.payments.DeleteStarGift)
+    assert client.sent[0].stargift.slug == "abc-1"

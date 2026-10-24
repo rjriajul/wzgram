@@ -23,6 +23,7 @@ from .check_gift_code import CheckGiftCode
 from .convert_gift_to_stars import ConvertGiftToStars
 from .craft_gift import CraftGift
 from .create_gift_collection import CreateGiftCollection
+from .delete_gift import DeleteGift
 from .delete_gift_collection import DeleteGiftCollection
 from .drop_gift_original_details import DropGiftOriginalDetails
 from .edit_star_subscription import EditStarSubscription
@@ -70,6 +71,7 @@ class Payments(
     ConvertGiftToStars,
     CraftGift,
     CreateGiftCollection,
+    DeleteGift,
     DeleteGiftCollection,
     DropGiftOriginalDetails,
     EditStarSubscription,

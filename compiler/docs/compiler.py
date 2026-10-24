@@ -537,6 +537,7 @@ def pyrogram_api():
             convert_gift_to_stars
             craft_gift
             create_gift_collection
+            delete_gift
             delete_gift_collection
             drop_gift_original_details
             edit_star_subscription
