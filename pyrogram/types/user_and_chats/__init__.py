@@ -64,8 +64,12 @@ from .phone_call_started import PhoneCallStarted
 from .privacy_rule import PrivacyRule
 from .restriction import Restriction
 from .stories_stealth_mode import StoriesStealthMode
+from .ton_wallet_ownership_proof import TonWalletOwnershipProof
+from .ton_wallet_ownership_proof_challenge import TonWalletOwnershipProofChallenge
+from .ton_wallet_state import TonWalletState
 from .user import Link, User
 from .user_rating import UserRating
+from .user_ton_wallet_address import UserTonWalletAddress
 from .username import Username
 from .verification_status import VerificationStatus
 from .video_chat_ended import VideoChatEnded
@@ -127,9 +131,13 @@ __all__ = [
     "PrivacyRule",
     "Restriction",
     "StoriesStealthMode",
+    "TonWalletOwnershipProof",
+    "TonWalletOwnershipProofChallenge",
+    "TonWalletState",
     "Link",
     "User",
     "UserRating",
+    "UserTonWalletAddress",
     "Username",
     "VerificationStatus",
     "VideoChatEnded",

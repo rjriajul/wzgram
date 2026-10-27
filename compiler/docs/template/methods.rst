@@ -234,6 +234,19 @@ Stories
 
     {stories}
 
+Wallet
+------
+
+.. autosummary::
+    :nosignatures:
+
+    {wallet}
+
+.. toctree::
+    :hidden:
+
+    {wallet}
+
 Phone
 ------
 

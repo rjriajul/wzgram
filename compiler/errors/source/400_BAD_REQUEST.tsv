@@ -349,6 +349,7 @@ VIDEO_CONTENT_TYPE_INVALID	The video content type is invalid (i.e.: not streamab
 VIDEO_FILE_INVALID	The video file is invalid
 VOICE_MESSAGES_FORBIDDEN	Voice messages are restricted
 VOLUME_LOC_NOT_FOUND	The volume location can't be found
+WALLET_UNAVAILABLE	The TON wallet is not available for this account
 WALLPAPER_FILE_INVALID	The provided file cannot be used as a wallpaper
 WALLPAPER_INVALID	The input wallpaper was not valid
 WALLPAPER_MIME_INVALID	The wallpaper mime type is invalid

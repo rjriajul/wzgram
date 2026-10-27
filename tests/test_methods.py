@@ -1791,6 +1791,87 @@ async def test_get_messages_sends_message_id_zero(kwargs):
     assert client.invoke.await_args.args[0].id[0].id == 0
 
 
+def _wallet_addresses(*user_ids):
+    return raw.types.wallet.UserAddresses(
+        addresses=[
+            raw.types.WalletUserAddress(user_id=i, address=f"UQ{i}", public_key=bytes([i]))
+            for i in user_ids
+        ],
+        users=[raw.types.User(id=i, first_name=str(i), usernames=[], restriction_reason=[]) for i in user_ids]
+    )
+
+
+async def test_wallet_addresses_are_asked_for_by_user():
+    client = FakeClient([_wallet_addresses(5, 6)])
+
+    found = await pyrogram.Client.get_user_ton_wallet_addresses(client, [5, 6])
+
+    sent = client.sent[0]
+    assert isinstance(sent, raw.functions.wallet.GetUserAddresses)
+    assert [p.user_id for p in sent.id] == [5, 6] and sent.addresses == [] and not sent.force
+    assert [(a.wallet_address, a.user.id) for a in found] == [("UQ5", 5), ("UQ6", 6)]
+
+
+async def test_a_single_wallet_user_is_accepted_too():
+    client = FakeClient([_wallet_addresses(5)])
+
+    found = await pyrogram.Client.get_user_ton_wallet_addresses(client, 5)
+
+    assert [a.user.id for a in found] == [5]
+
+
+async def test_creating_a_user_wallet_forces_the_lookup():
+    client = FakeClient([_wallet_addresses(5)])
+
+    created = await pyrogram.Client.create_user_wallet(client, 5)
+
+    assert client.sent[0].force is True
+    assert created.wallet_address == "UQ5"
+
+
+async def test_a_wallet_is_looked_up_by_its_address():
+    client = FakeClient([_wallet_addresses(5), _wallet_addresses()])
+
+    found = await pyrogram.Client.get_address_ton_wallet(client, "UQ5")
+    missing = await pyrogram.Client.get_address_ton_wallet(client, "UQnone")
+
+    assert client.sent[0].addresses == ["UQ5"] and client.sent[0].id == []
+    assert found.wallet_address == "UQ5" and found.user.id == 5
+    assert missing is None
+
+
+async def test_the_proof_challenge_keeps_its_expiry():
+    client = FakeClient([raw.types.wallet.ProofChallenge(payload="p", expires=1700000000, domain="d")])
+
+    challenge = await pyrogram.Client.get_ton_wallet_ownership_proof_challenge(client)
+
+    assert (challenge.payload, challenge.domain) == ("p", "d")
+    assert challenge.expiration_date.timestamp() == 1700000000
+
+
+async def test_replacing_a_wallet_sends_the_proof_without_a_password():
+    state = raw.types.WalletState(address="UQ1", public_key=b"k", balance=7, backup_enabled=True)
+    client = FakeClient([state])
+    proof = types.TonWalletOwnershipProof(public_key=b"new", timestamp=10, signature=b"sig")
+
+    result = await pyrogram.Client.replace_ton_wallet(client, proof)
+
+    sent = client.sent[0]
+    assert isinstance(sent.wallet, raw.types.InputWalletImported)
+    assert (sent.wallet.public_key, sent.wallet.proof.timestamp, sent.wallet.proof.signature) == (b"new", 10, b"sig")
+    assert sent.password is None
+    assert (result.wallet_address, result.gram_amount, result.is_backup_enabled) == ("UQ1", 7, True)
+
+
+async def test_deleting_a_wallet_asks_for_a_new_one():
+    client = FakeClient([raw.types.WalletStateEmpty(creating=True)])
+
+    result = await pyrogram.Client.delete_ton_wallet(client)
+
+    assert isinstance(client.sent[0].wallet, raw.types.InputWalletNew)
+    assert result.is_being_created is True and result.wallet_address is None
+
+
 async def test_deleting_a_gift_sends_the_saved_gift():
     client = FakeClient([True])
     client.SAVED_GIFT_RE = pyrogram.Client.SAVED_GIFT_RE

@@ -580,6 +580,15 @@ def pyrogram_api():
         Phone
             get_call_members
         """,
+        wallet="""
+        Wallet
+            create_user_wallet
+            delete_ton_wallet
+            get_address_ton_wallet
+            get_ton_wallet_ownership_proof_challenge
+            get_user_ton_wallet_addresses
+            replace_ton_wallet
+        """,
         premium="""
         Premium
             apply_boost
@@ -766,7 +775,11 @@ def pyrogram_api():
             PhoneCallStarted
             PrivacyRule
             StoriesStealthMode
+            TonWalletOwnershipProof
+            TonWalletOwnershipProofChallenge
+            TonWalletState
             UserRating
+            UserTonWalletAddress
             AcceptedGiftTypes
             BotVerification
             BusinessBotRights
