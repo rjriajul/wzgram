@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -1985,3 +1986,43 @@ def test_the_sender_is_the_user_or_else_the_chat():
     assert types.Message(id=1, from_user=user, sender_chat=chat).sender is user
     assert types.Message(id=1, sender_chat=chat).sender is chat
     assert types.Message(id=1).sender is None
+
+
+def _quoted_reply(**quote):
+    return raw.core.TLObject.read(BytesIO(raw.types.Message(
+        id=4,
+        from_id=raw.types.PeerUser(user_id=1),
+        peer_id=raw.types.PeerUser(user_id=2),
+        date=0,
+        message="reply",
+        reply_to=raw.types.MessageReplyHeader(reply_to_msg_id=3, **quote)
+    ).write()))
+
+
+async def test_a_rich_quote_keeps_its_rich_text_and_a_plain_copy():
+    users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Receiver")}
+    reply = _quoted_reply(
+        quote=True,
+        quote_rich=[raw.types.TextBold(text=raw.types.TextPlain(text="hi")), raw.types.TextPlain(text=" there")],
+        quote_offset=4
+    )
+
+    quote = (await types.Message._parse(MagicMock(), reply, users, {}, replies=0)).quote
+
+    assert quote.text == "hi there"
+    assert quote.rich_text[0].text == "hi" and quote.rich_text[1] == " there"
+    assert (quote.position, quote.is_manual, quote.entities) == (4, True, None)
+
+
+async def test_an_automatic_quote_is_kept_too():
+    users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Receiver")}
+
+    quote = (await types.Message._parse(MagicMock(), _quoted_reply(quote_text="hello"), users, {}, replies=0)).quote
+
+    assert (quote.text, quote.is_manual, quote.rich_text) == ("hello", False, None)
+
+
+async def test_a_reply_without_a_quote_has_none():
+    users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Receiver")}
+
+    assert (await types.Message._parse(MagicMock(), _quoted_reply(), users, {}, replies=0)).quote is None

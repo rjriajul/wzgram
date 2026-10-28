@@ -2113,10 +2113,11 @@ class Message(Object, Update):
                 else:
                     parsed_message.message_thread_id = 1
 
-            if message.reply_to.quote:
-                parsed_message.quote = types.TextQuote._parse(
+            if message.reply_to.quote or message.reply_to.quote_text or message.reply_to.quote_rich:
+                parsed_message.quote = await types.TextQuote._parse(
                     client,
                     users,
+                    chats,
                     message.reply_to
                 )
 

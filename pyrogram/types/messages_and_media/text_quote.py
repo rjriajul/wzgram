@@ -16,12 +16,13 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import pyrogram
 from pyrogram import raw, types
 
 from ..messages_and_media.message import Str
+from .rich_text import _plain_text
 from ..object import Object
 
 
@@ -43,13 +44,17 @@ class TextQuote(Object):
             True, if the quote was chosen manually by the message sender.
             Otherwise, the quote was added automatically by the server.
 
+        rich_text (:obj:`~pyrogram.types.RichText`, *optional*):
+            The quote as rich text, when it was taken from a rich message.
+
     """
     def __init__(
         self, *,
         text: Optional[str] = None,
         entities: Optional[List["types.MessageEntity"]] = None,
         position: Optional[int] = None,
-        is_manual: Optional[bool] = None
+        is_manual: Optional[bool] = None,
+        rich_text: Optional[Union[str, List["types.RichText"], "types.RichText"]] = None
     ):
         super().__init__()
 
@@ -57,11 +62,13 @@ class TextQuote(Object):
         self.entities = entities
         self.position = position
         self.is_manual = is_manual
+        self.rich_text = rich_text
 
     @staticmethod
-    def _parse(
+    async def _parse(
         client: "pyrogram.Client",
         users: Dict[int, "raw.types.User"],
+        chats: Dict[int, "raw.types.Chat"],
         reply_to: "raw.types.MessageReplyHeader"
     ) -> "TextQuote":
         if isinstance(reply_to, raw.types.MessageReplyHeader):
@@ -75,10 +82,20 @@ class TextQuote(Object):
                 )
             )
 
+            rich_text = None
+
+            if reply_to.quote_rich:
+                rich_text = await types.RichText._parse(
+                    client, raw.types.TextConcat(texts=reply_to.quote_rich), users, chats
+                )
+
+            text = reply_to.quote_text or _plain_text(rich_text)
+
             return TextQuote(
-                text=Str(reply_to.quote_text).init(entities) or None,
+                text=Str(text).init(entities) if text else None,
                 entities=entities or None,
                 position=reply_to.quote_offset or 0,
-                is_manual=reply_to.quote
+                is_manual=reply_to.quote,
+                rich_text=rich_text
             )
 
