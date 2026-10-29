@@ -586,6 +586,7 @@ def pyrogram_api():
             delete_ton_wallet
             get_address_ton_wallet
             get_ton_wallet_ownership_proof_challenge
+            get_ton_wallet_state
             get_user_ton_wallet_addresses
             replace_ton_wallet
         """,
@@ -694,6 +695,7 @@ def pyrogram_api():
             on_start
             on_stop
             on_story
+            on_ton_wallet_state
             on_user_status
         """,
     )

@@ -46,4 +46,5 @@ from .shipping_query_handler import ShippingQueryHandler
 from .start_handler import StartHandler
 from .stop_handler import StopHandler
 from .story_handler import StoryHandler
+from .ton_wallet_state_handler import TonWalletStateHandler
 from .user_status_handler import UserStatusHandler

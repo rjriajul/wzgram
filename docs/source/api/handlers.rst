@@ -76,6 +76,11 @@ Payments
 .. autoclass:: pyrogram.handlers.ShippingQueryHandler()
 .. autoclass:: pyrogram.handlers.PurchasedPaidMediaHandler()
 
+Wallet
+------
+
+.. autoclass:: pyrogram.handlers.TonWalletStateHandler()
+
 Client lifecycle
 ----------------
 

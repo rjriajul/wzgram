@@ -1880,3 +1880,30 @@ async def test_deleting_a_gift_sends_the_saved_gift():
     assert await pyrogram.Client.delete_gift(client, "https://t.me/nft/abc-1") is True
     assert isinstance(client.sent[0], raw.functions.payments.DeleteStarGift)
     assert client.sent[0].stargift.slug == "abc-1"
+
+
+async def test_the_ton_wallet_state_is_read():
+    client = FakeClient([raw.types.WalletState(
+        address="UQme", public_key=b"k", balance=7, backup_enabled=True, can_export_phrase=True
+    )])
+
+    state = await pyrogram.Client.get_ton_wallet_state(client)
+
+    assert isinstance(client.sent[0], raw.functions.wallet.GetState)
+    assert (state.wallet_address, state.gram_amount, state.is_backup_enabled) == ("UQme", 7, True)
+
+
+async def test_a_wallet_state_update_reaches_the_wallet_handler():
+    from unittest.mock import Mock
+
+    from pyrogram.dispatcher import Dispatcher
+    from pyrogram.handlers import TonWalletStateHandler
+
+    parser = Dispatcher(Mock(listeners=None)).update_parsers[raw.types.UpdateWalletState]
+
+    state, handler_type = await parser(
+        raw.types.UpdateWalletState(state=raw.types.WalletStateEmpty(creating=True)), {}, {}
+    )
+
+    assert handler_type is TonWalletStateHandler
+    assert state.is_being_created is True and state.wallet_address is None

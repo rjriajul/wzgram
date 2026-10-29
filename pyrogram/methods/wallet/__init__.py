@@ -19,6 +19,7 @@
 from .create_user_wallet import CreateUserWallet
 from .delete_ton_wallet import DeleteTonWallet
 from .get_address_ton_wallet import GetAddressTonWallet
+from .get_ton_wallet_state import GetTonWalletState
 from .get_ton_wallet_ownership_proof_challenge import GetTonWalletOwnershipProofChallenge
 from .get_user_ton_wallet_addresses import GetUserTonWalletAddresses
 from .replace_ton_wallet import ReplaceTonWallet
@@ -28,6 +29,7 @@ class Wallet(
     CreateUserWallet,
     DeleteTonWallet,
     GetAddressTonWallet,
+    GetTonWalletState,
     GetTonWalletOwnershipProofChallenge,
     GetUserTonWalletAddresses,
     ReplaceTonWallet
