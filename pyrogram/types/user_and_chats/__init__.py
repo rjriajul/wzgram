@@ -69,6 +69,9 @@ from .ton_wallet_ownership_proof_challenge import TonWalletOwnershipProofChallen
 from .ton_wallet_state import TonWalletState
 from .user import Link, User
 from .user_rating import UserRating
+from .no_paid_messages_token import NoPaidMessagesToken
+from .share_theme import ShareTheme
+from .share_theme_backdrop import ShareThemeBackdrop
 from .user_ton_wallet_address import UserTonWalletAddress
 from .username import Username
 from .verification_status import VerificationStatus
@@ -137,6 +140,9 @@ __all__ = [
     "Link",
     "User",
     "UserRating",
+    "NoPaidMessagesToken",
+    "ShareTheme",
+    "ShareThemeBackdrop",
     "UserTonWalletAddress",
     "Username",
     "VerificationStatus",

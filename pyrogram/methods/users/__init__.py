@@ -26,10 +26,12 @@ from .get_chat_photos_count import GetChatPhotosCount
 from .get_common_chats import GetCommonChats
 from .get_default_emoji_statuses import GetDefaultEmojiStatuses
 from .get_me import GetMe
+from .get_share_theme_backdrops import GetShareThemeBackdrops
 from .get_users import GetUsers
 from .set_emoji_status import SetEmojiStatus
 from .set_personal_channel import SetPersonalChannel
 from .set_profile_photo import SetBotProfilePhoto, SetProfilePhoto
+from .set_share_theme import SetShareTheme
 from .set_username import SetUsername
 from .unblock_user import UnblockUser
 from .update_birthday import UpdateBirthday
@@ -48,11 +50,13 @@ class Users(
     GetCommonChats,
     GetDefaultEmojiStatuses,
     GetMe,
+    GetShareThemeBackdrops,
     GetUsers,
     SetBotProfilePhoto,
     SetEmojiStatus,
     SetPersonalChannel,
     SetProfilePhoto,
+    SetShareTheme,
     SetUsername,
     UnblockUser,
     UpdateBirthday,

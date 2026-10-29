@@ -26,6 +26,7 @@ from .set_global_privacy_settings import SetGlobalPrivacySettings
 from .set_inactive_session_ttl import SetInactiveSessionTTL
 from .set_privacy import SetPrivacy
 from .set_profile_audio_position import SetProfileAudioPosition
+from .toggle_no_paid_messages_exception import ToggleNoPaidMessagesException
 
 class Account(
     AddProfileAudio,
@@ -37,7 +38,8 @@ class Account(
     SetGlobalPrivacySettings,
     SetInactiveSessionTTL,
     SetPrivacy,
-    SetProfileAudioPosition
+    SetProfileAudioPosition,
+    ToggleNoPaidMessagesException
 ):
     pass
 

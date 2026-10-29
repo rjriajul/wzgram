@@ -538,6 +538,10 @@ class Chat(Object):
             Note added to the user's contact.
             Returned only in :meth:`~pyrogram.Client.get_chat`.
 
+        share_theme (:obj:`~pyrogram.types.ShareTheme`, *optional*):
+            Theme of the page shown when the user or channel is shared.
+            Returned only in :meth:`~pyrogram.Client.get_chat`.
+
         guard_bot (:obj:`~pyrogram.types.User`, *optional*):
             The bot that processes join request queries in the chat.
             The field is only available to chat administrators
@@ -694,6 +698,7 @@ class Chat(Object):
         uses_unofficial_app: Optional[bool] = None,
         accepted_gift_types: Optional["types.AcceptedGiftTypes"] = None,
         note: Optional["types.FormattedText"] = None,
+        share_theme: Optional["types.ShareTheme"] = None,
         guard_bot: Optional["types.User"] = None,
         raw: Optional[Union["raw.types.UserFull", "raw.types.ChatFull", "raw.types.ChannelFull"]] = None
     ):
@@ -840,6 +845,7 @@ class Chat(Object):
         self.uses_unofficial_app = uses_unofficial_app
         self.accepted_gift_types = accepted_gift_types
         self.note = note
+        self.share_theme = share_theme
         self.guard_bot = guard_bot
         self.raw = raw
 
@@ -1205,6 +1211,7 @@ class Chat(Object):
         parsed_chat.uses_unofficial_app = user.unofficial_security_risk
         parsed_chat.accepted_gift_types = types.AcceptedGiftTypes._parse(user.disallowed_gifts)
         parsed_chat.note = types.FormattedText._parse(client, user.note)
+        parsed_chat.share_theme = await types.ShareTheme._parse(client, user.share_theme, users, chats)
 
         return parsed_chat
 
@@ -1372,6 +1379,7 @@ class Chat(Object):
         parsed_chat.sticker_set_name = getattr(channel.stickerset, "short_name", None)
         parsed_chat.is_paid_messages_available = channel.paid_messages_available
         parsed_chat.guard_bot = types.User._parse(client, users.get(channel.guard_bot_id))
+        parsed_chat.share_theme = await types.ShareTheme._parse(client, channel.share_theme, users, chats)
 
         return parsed_chat
 

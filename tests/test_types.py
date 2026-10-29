@@ -2035,3 +2035,19 @@ async def test_a_used_no_paid_messages_token_is_a_service_message():
 
     assert parsed.service == enums.MessageServiceType.NO_PAID_MESSAGES_TOKEN_USED
     assert parsed.no_paid_messages_token_used is True
+
+
+async def test_an_emoji_backdrop_share_theme_is_parsed():
+    theme = raw.types.ShareThemeEmojiBackdrop(
+        backdrop_id=49, emojis=[raw.types.ReactionEmoji(emoticon="🔥"), raw.types.ReactionCustomEmoji(document_id=7)]
+    )
+
+    parsed = await types.ShareTheme._parse(MagicMock(), theme, {}, {})
+
+    assert parsed.backdrop_id == 49 and parsed.gift is None
+    assert [(e.emoji, e.custom_emoji_id) for e in parsed.emojis] == [("🔥", None), (None, "7")]
+
+
+@pytest.mark.parametrize("theme", [None, raw.types.ShareThemeDefault()])
+async def test_no_share_theme_or_the_default_one_is_none(theme):
+    assert await types.ShareTheme._parse(MagicMock(), theme, {}, {}) is None

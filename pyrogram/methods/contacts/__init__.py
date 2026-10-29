@@ -18,10 +18,12 @@
 
 from .add_contact import AddContact
 from .delete_contacts import DeleteContacts
+from .export_no_paid_messages_token import ExportNoPaidMessagesToken
 from .get_blocked_message_senders import GetBlockedMessageSenders
 from .get_contacts import GetContacts
 from .get_contacts_count import GetContactsCount
 from .import_contacts import ImportContacts
+from .import_no_paid_messages_token import ImportNoPaidMessagesToken
 from .search_contacts import SearchContacts
 from .set_contact_note import SetContactNote
 
@@ -29,10 +31,12 @@ from .set_contact_note import SetContactNote
 class Contacts(
     AddContact,
     DeleteContacts,
+    ExportNoPaidMessagesToken,
     GetBlockedMessageSenders,
     GetContacts,
     GetContactsCount,
     ImportContacts,
+    ImportNoPaidMessagesToken,
     SearchContacts,
     SetContactNote
 ):
