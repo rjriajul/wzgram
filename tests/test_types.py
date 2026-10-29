@@ -2026,3 +2026,12 @@ async def test_a_reply_without_a_quote_has_none():
     users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Receiver")}
 
     assert (await types.Message._parse(MagicMock(), _quoted_reply(), users, {}, replies=0)).quote is None
+
+
+async def test_a_used_no_paid_messages_token_is_a_service_message():
+    users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Receiver")}
+
+    parsed = await types.Message._parse(MagicMock(), _service(raw.types.MessageActionNoPaidMessagesTokenUsed()), users, {})
+
+    assert parsed.service == enums.MessageServiceType.NO_PAID_MESSAGES_TOKEN_USED
+    assert parsed.no_paid_messages_token_used is True
