@@ -2385,6 +2385,7 @@ class _InitClient:
         self.is_initialized = False
         self.listeners = _Listeners()
         self.rate_limiter = None
+        self.no_updates = None
         self.dispatcher = _FakeDispatcher(fail)
         self.updates_watchdog_task = None
         self.updates_watchdog_event = asyncio.Event()
@@ -2414,6 +2415,20 @@ async def test_a_failed_initialize_takes_its_workers_with_it():
         assert task is None or task.done(), (
             "a background task started before the failure must not outlive it"
         )
+
+
+async def test_a_client_without_updates_starts_no_watchdog():
+    client = _InitClient(fail=False)
+    client.no_updates = True
+
+    await client.initialize()
+
+    try:
+        assert client.updates_watchdog_task is None
+        assert client.media_pool_reaper_task is not None
+    finally:
+        client.media_pool_reaper_event.set()
+        await client.media_pool_reaper_task
 
 
 class _StartClient:

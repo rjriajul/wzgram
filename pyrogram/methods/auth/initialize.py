@@ -56,7 +56,8 @@ class Initialize:
         try:
             await self.dispatcher.start()
 
-            self.updates_watchdog_task = asyncio.create_task(self.updates_watchdog())
+            if not self.no_updates:
+                self.updates_watchdog_task = asyncio.create_task(self.updates_watchdog())
             self.media_pool_reaper_task = asyncio.create_task(self.media_pool_reaper())
         except BaseException:
             # is_initialized is still False, so terminate() would refuse to run and
