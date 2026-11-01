@@ -1214,7 +1214,7 @@ class Client(Methods):
                                     force=False
                                 )
                             )
-                        except (ChannelPrivate, PersistentTimestampOutdated, PersistentTimestampInvalid):
+                        except (ChannelPrivate, PersistentTimestampOutdated, PersistentTimestampInvalid, TimeoutError):
                             pass
                         else:
                             if not isinstance(diff, raw.types.updates.ChannelDifferenceEmpty):
