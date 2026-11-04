@@ -22,7 +22,6 @@ import logging
 import pyrogram
 from pyrogram import raw
 from pyrogram.raw.core import TLObject
-from pyrogram.session import Session
 from pyrogram.methods.rate_limiter import RateLimiter
 
 log = logging.getLogger(__name__)
@@ -214,8 +213,8 @@ class Invoke:
     async def invoke(
         self: "pyrogram.Client",
         query: TLObject,
-        retries: int = Session.MAX_RETRIES,
-        timeout: float = Session.WAIT_TIMEOUT,
+        retries: Optional[int] = None,
+        timeout: Optional[float] = None,
         sleep_threshold: Optional[float] = None,
         business_connection_id: Optional[str] = None,
         recaptcha_token: Optional[str] = None
@@ -240,9 +239,11 @@ class Invoke:
 
             retries (``int``, *optional*):
                 Number of retries in case of a failure.
+                Defaults to the client's *retries*.
 
             timeout (``float``, *optional*):
                 Timeout in seconds.
+                Defaults to the client's *timeout*.
 
             sleep_threshold (``float``, *optional*):
                 Sleep threshold in seconds.
@@ -293,7 +294,9 @@ class Invoke:
             await self.rate_limiter.acquire(category)
 
         r = await self.session.invoke(
-            query, retries, timeout,
+            query,
+            retries if retries is not None else self.retries,
+            timeout if timeout is not None else self.timeout,
             (sleep_threshold
              if sleep_threshold is not None
              else self.sleep_threshold)

@@ -316,6 +316,15 @@ class Client(Methods):
             Only available for users, bots will ignore this parameter.
             Defaults to False (normal session).
 
+        retries (``int``, *optional*):
+            Set how many times a request is sent again after a network failure or a server error before it raises.
+            Useful when the connection is lost for a few minutes.
+            Defaults to 10.
+
+        timeout (``float``, *optional*):
+            Set how many seconds a request waits for its answer. Useful with a proxy or a slow connection.
+            Defaults to 15 seconds.
+
         sleep_threshold (``int``, *optional*):
             Set a sleep threshold for flood wait exceptions happening globally in this client instance, below which any
             request that raises a flood wait will be automatically invoked again after sleeping for the required amount
@@ -485,6 +494,8 @@ class Client(Methods):
         no_updates: Optional[bool] = None,
         skip_updates: Optional[bool] = True,
         takeout: Optional[bool] = None,
+        retries: int = Session.MAX_RETRIES,
+        timeout: float = Session.WAIT_TIMEOUT,
         sleep_threshold: int = Session.SLEEP_THRESHOLD,
         hide_password: Optional[bool] = False,
         max_concurrent_transmissions: int = MAX_CONCURRENT_TRANSMISSIONS,
@@ -536,6 +547,8 @@ class Client(Methods):
         self.no_updates = no_updates
         self.skip_updates = skip_updates
         self.takeout = takeout
+        self.retries = retries
+        self.timeout = timeout
         self.sleep_threshold = sleep_threshold
         self.hide_password = hide_password
         self.max_concurrent_transmissions = max_concurrent_transmissions

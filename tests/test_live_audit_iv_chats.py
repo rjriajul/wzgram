@@ -41,16 +41,20 @@ class _InvokeClient(Invoke):
     is_connected = True
     takeout_id = None
     rate_limiter = None
+    retries = 3
+    timeout = 40
     sleep_threshold = 10
 
     def __init__(self, no_updates, auto_no_updates):
         self.no_updates = no_updates
         self.auto_no_updates = auto_no_updates
         self.sent = []
+        self.args = []
         self.session = SimpleNamespace(invoke=self._send)
 
     async def _send(self, query, *args):
         self.sent.append(query)
+        self.args.append(args)
         return raw.types.Pong(msg_id=0, ping_id=0)
 
     async def fetch_peers(self, peers):
@@ -68,6 +72,15 @@ async def test_invoke_never_wraps_a_service_function(no_updates, auto_no_updates
     assert isinstance(client.sent[0], raw.functions.Ping)
     assert isinstance(client.sent[1], raw.functions.PingDelayDisconnect)
     assert isinstance(client.sent[2], raw.functions.InvokeWithoutUpdates)
+
+
+async def test_invoke_falls_back_to_the_retries_and_timeout_of_the_client():
+    client = _InvokeClient(False, False)
+
+    await client.invoke(raw.functions.help.GetConfig())
+    await client.invoke(raw.functions.help.GetConfig(), retries=0, timeout=5)
+
+    assert client.args == [(3, 40, 10), (0, 5, 10)]
 
 
 class _PhotosClient(_Recorder, GetChatPhotos, GetChatPhotosCount):
