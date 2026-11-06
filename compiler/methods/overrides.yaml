@@ -760,6 +760,10 @@ toggle_forum:
       type: bool
       default: None
       doc: Whether to show topics as tabs
+    - name: sidebar
+      type: bool
+      default: None
+      doc: Whether to show topics in a sidebar
 
 toggle_auto_translation:
   category: chats

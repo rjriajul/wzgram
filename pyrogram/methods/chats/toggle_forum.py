@@ -34,6 +34,7 @@ class ToggleForum:
         chat_id: Union[int, str],
         enabled: Optional[bool] = None,
         tabs: Optional[bool] = None,
+        sidebar: Optional[bool] = None,
     ) -> bool:
         """Toggle forum mode in a supergroup.
 
@@ -45,6 +46,8 @@ class ToggleForum:
 
 
             tabs (bool): Whether to show topics as tabs
+
+            sidebar (bool): Whether to show topics in a sidebar
 
             chat_id (``int`` | ``str``):
                 Unique identifier (int) or username (str) of the target chat.
@@ -66,6 +69,7 @@ class ToggleForum:
                 channel=await self.resolve_peer(chat_id),
                 enabled=enabled,
                 tabs=tabs,
+                sidebar=sidebar,
             )
         )
 
