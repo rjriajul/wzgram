@@ -2,6 +2,7 @@ id	message
 ABOUT_TOO_LONG	The provided about/bio text is too long
 ACCESS_TOKEN_EXPIRED	The bot token has expired
 ACCESS_TOKEN_INVALID	The bot access token is invalid
+ADD_ANSWER_FORBIDDEN	Options can't be added to this poll
 ADMINS_TOO_MUCH	The chat has too many administrators
 ADMIN_RANK_EMOJI_NOT_ALLOWED	Emoji are not allowed in custom administrator titles
 ADMIN_RANK_INVALID	The custom administrator title is invalid or too long
@@ -18,6 +19,7 @@ AUTOARCHIVE_NOT_AVAILABLE	This feature is not yet enabled for your account due t
 BANK_CARD_NUMBER_INVALID	The credit card number is invalid
 BANNED_RIGHTS_INVALID	You provided a set of restrictions that is invalid
 BASE_PORT_LOC_INVALID	The base port location is invalid
+BOOSTS_REQUIRED	The channel must first be boosted by its users in order to perform this action
 BOTS_TOO_MUCH	The chat has too many bots
 BOT_CHANNELS_NA	Bots can't edit admin privileges
 BOT_COMMAND_DESCRIPTION_INVALID	The command description was empty, too long or had invalid characters
@@ -79,6 +81,7 @@ CONNECTION_SYSTEM_EMPTY	The connection to the system is empty
 CONNECTION_SYSTEM_LANG_CODE_EMPTY	The system language code is empty
 CONTACT_ADD_MISSING	Contact to add is missing
 CONTACT_ID_INVALID	The provided contact id is invalid
+CONTACT_MISSING	The specified user is not a contact
 CONTACT_NAME_EMPTY	The provided contact name is empty
 CONTACT_REQ_MISSING	Missing contact request
 DATA_INVALID	The encrypted data is invalid
@@ -86,7 +89,9 @@ DATA_JSON_INVALID	The provided JSON data is invalid
 DATA_TOO_LONG	Data too long
 DATE_EMPTY	The date argument is empty
 DC_ID_INVALID	The dc_id parameter is invalid
+DELETE_ANSWER_FORBIDDEN	This poll option can't be deleted
 DH_G_A_INVALID	The g_a parameter invalid
+DISCUSSION_CHAT_REQUIRED	This action requires a discussion group linked to a channel
 DOCUMENT_INVALID	The document is invalid
 EMAIL_HASH_EXPIRED	The email hash expired and cannot be used to verify it
 EMAIL_INVALID	The email provided is invalid
@@ -128,11 +133,13 @@ FILTER_ID_INVALID	The specified filter ID is invalid
 FIRSTNAME_INVALID	The first name is invalid
 FOLDER_ID_EMPTY	The folder you tried to delete was already empty
 FOLDER_ID_INVALID	The folder id is invalid
+FORUM_ENABLED	You can't do this because the group is a forum, disable forum functionality to continue
 FRESH_CHANGE_ADMINS_FORBIDDEN	You can't change administrator settings in this chat because your session was logged-in recently
 FROM_MESSAGE_BOT_DISABLED	Bots can't use fromMessage min constructors
 FROM_PEER_INVALID	The from peer value is invalid
 GAME_BOT_INVALID	You cannot send that game with the current bot
 GEO_POINT_INVALID	Invalid geo point provided
+GIFT_SLUG_EXPIRED	The specified gift slug has expired
 GIF_CONTENT_TYPE_INVALID	GIF content-type invalid
 GIF_ID_INVALID	The provided gif/animation id is invalid
 GRAPH_INVALID_RELOAD	Invalid graph token provided, please reload the stats and provide the updated token
@@ -153,6 +160,7 @@ INPUT_FILTER_INVALID	The filter is invalid for this query
 INPUT_LAYER_INVALID	The provided layer is invalid
 INPUT_METHOD_INVALID	The method invoked is invalid in the current schema
 INPUT_REQUEST_TOO_LONG	The input request is too long
+INPUT_TEXT_TOO_LONG	The specified text is too long
 INPUT_USER_DEACTIVATED	The target user has been deleted/deactivated
 INVITE_HASH_EMPTY	The invite hash is empty
 INVITE_HASH_EXPIRED	The chat invite link is no longer valid
@@ -197,6 +205,7 @@ OPTION_INVALID	The option specified is invalid and does not exist in the target 
 PACK_SHORT_NAME_INVALID	Invalid sticker pack name. It must begin with a letter, can't contain consecutive underscores and must end in '_by_<bot username>'.
 PACK_SHORT_NAME_OCCUPIED	A sticker pack with this name already exists
 PACK_TITLE_INVALID	The sticker pack title is invalid
+PARENT_PEER_INVALID	The specified parent peer is invalid
 PARTICIPANTS_TOO_FEW	The chat doesn't have enough participants
 PARTICIPANT_VERSION_OUTDATED	The other participant is using an outdated Telegram app version
 PASSWORD_EMPTY	The password provided is empty
@@ -270,6 +279,8 @@ RESULT_ID_EMPTY	Result ID empty
 RESULT_ID_INVALID	The given result cannot be used to send the selection to the bot
 RESULT_TYPE_INVALID	The result type is invalid
 REVOTE_NOT_ALLOWED	You cannot change your vote
+RICH_MESSAGE_UNSUPPORTED	Rich messages are not supported here
+RIGHTS_NOT_MODIFIED	The new admin rights are equal to the old rights, no change was made
 RSA_DECRYPT_FAILED	Internal RSA decryption failed
 SCHEDULE_BOT_NOT_ALLOWED	Bots are not allowed to schedule messages
 SCHEDULE_DATE_INVALID	Invalid schedule date provided
@@ -278,6 +289,7 @@ SCHEDULE_STATUS_PRIVATE	You cannot schedule a message until the person comes onl
 SCHEDULE_TOO_MUCH	You tried to schedule too many messages in this chat
 SEARCH_QUERY_EMPTY	The search query is empty
 SECONDS_INVALID	The seconds interval is invalid
+SEND_AS_PEER_INVALID	You can't send messages as the specified peer
 SEND_MESSAGE_MEDIA_INVALID	The message media is invalid
 SEND_MESSAGE_TYPE_INVALID	The message type is invalid
 SESSION_TOO_FRESH_X	You can't do this action because the current session was logged-in recently
