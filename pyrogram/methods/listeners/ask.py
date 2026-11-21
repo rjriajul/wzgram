@@ -22,7 +22,7 @@ import pyrogram
 from pyrogram import enums, types
 from pyrogram.filters import Filter
 
-from .listen import UNSET
+from .listen import UNSET, add_listener, wait_for_listener
 
 
 class Ask:
@@ -97,13 +97,8 @@ class Ask:
                 answer = await app.ask(chat_id, "What is your name?", timeout=60)
                 await answer.reply(f"Hello {answer.text}")
         """
-        sent_message = await self.send_message(
-            chat_id[0] if isinstance(chat_id, list) else chat_id,
-            text,
-            **kwargs
-        )
-
-        response = await self.listen(
+        listener, future = await add_listener(
+            self,
             filters=filters,
             listener_type=listener_type,
             timeout=timeout,
@@ -113,6 +108,18 @@ class Ask:
             message_id=message_id,
             inline_message_id=inline_message_id
         )
+
+        try:
+            sent_message = await self.send_message(
+                chat_id[0] if isinstance(chat_id, list) else chat_id,
+                text,
+                **kwargs
+            )
+        except BaseException:
+            self.listeners.remove(listener)
+            raise
+
+        response = await wait_for_listener(self, listener, future)
 
         if response is not None:
             response.sent_message = sent_message

@@ -48,6 +48,67 @@ async def resolve_listener_ids(client: "pyrogram.Client", value):
     return value
 
 
+async def add_listener(
+    client: "pyrogram.Client",
+    filters,
+    listener_type,
+    timeout,
+    unallowed_click_alert,
+    chat_id,
+    user_id,
+    message_id,
+    inline_message_id
+):
+    if client.no_updates:
+        raise ListenerStopped(
+            "Cannot listen for updates on a client started with no_updates"
+        )
+
+    if timeout is UNSET:
+        timeout = client.listener_timeout
+
+    identifier = types.Identifier(
+        chat_id=await resolve_listener_ids(client, chat_id),
+        user_id=await resolve_listener_ids(client, user_id),
+        message_id=message_id,
+        inline_message_id=inline_message_id
+    )
+
+    future = client.loop.create_future()
+
+    listener = types.Listener(
+        listener_type=listener_type,
+        identifier=identifier,
+        filters=filters,
+        future=future,
+        unallowed_click_alert=unallowed_click_alert
+    )
+
+    client.listeners.add(listener, timeout)
+
+    return listener, future
+
+
+async def wait_for_listener(client: "pyrogram.Client", listener, future):
+    parked = client.dispatcher.park()
+
+    try:
+        return await future
+    except asyncio.CancelledError:
+        if future.done() and not future.cancelled() and not future.exception():
+            log.warning(
+                "A listener was cancelled after its update had already been "
+                "delivered; that update is lost"
+            )
+
+        raise
+    finally:
+        if parked:
+            client.dispatcher.unpark()
+
+        client.listeners.remove(listener)
+
+
 class Listen:
     async def listen(
         self: "pyrogram.Client",
@@ -120,47 +181,16 @@ class Listen:
                     message_id=sent.id
                 )
         """
-        if self.no_updates:
-            raise ListenerStopped(
-                "Cannot listen for updates on a client started with no_updates"
-            )
-
-        if timeout is UNSET:
-            timeout = self.listener_timeout
-
-        identifier = types.Identifier(
-            chat_id=await resolve_listener_ids(self, chat_id),
-            user_id=await resolve_listener_ids(self, user_id),
+        listener, future = await add_listener(
+            self,
+            filters=filters,
+            listener_type=listener_type,
+            timeout=timeout,
+            unallowed_click_alert=unallowed_click_alert,
+            chat_id=chat_id,
+            user_id=user_id,
             message_id=message_id,
             inline_message_id=inline_message_id
         )
 
-        future = self.loop.create_future()
-
-        listener = types.Listener(
-            listener_type=listener_type,
-            identifier=identifier,
-            filters=filters,
-            future=future,
-            unallowed_click_alert=unallowed_click_alert
-        )
-
-        self.listeners.add(listener, timeout)
-
-        parked = self.dispatcher.park()
-
-        try:
-            return await future
-        except asyncio.CancelledError:
-            if future.done() and not future.cancelled() and not future.exception():
-                log.warning(
-                    "A listener was cancelled after its update had already been "
-                    "delivered; that update is lost"
-                )
-
-            raise
-        finally:
-            if parked:
-                self.dispatcher.unpark()
-
-            self.listeners.remove(listener)
+        return await wait_for_listener(self, listener, future)
