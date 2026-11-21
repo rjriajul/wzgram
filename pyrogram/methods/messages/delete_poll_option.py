@@ -27,7 +27,7 @@ class DeletePollOption:
         self: "pyrogram.Client",
         chat_id: Union[int, str],
         message_id: int,
-        option: Union[str, "types.InputPollOption"],
+        option: Union[str, "types.PollOption"],
     ) -> Union["types.Message", bool]:
         """Deletes an option from a poll.
 
@@ -41,8 +41,9 @@ class DeletePollOption:
             message_id (``int``):
                 Identifier of the message containing the poll.
 
-            option (``str``):
-                Unique identifier of the option.
+            option (``str`` | :obj:`~pyrogram.types.PollOption`):
+                The option to delete: its :obj:`~pyrogram.types.PollOption` from the poll, or that
+                option's ``persistent_id``.
 
         Returns:
             :obj:`~pyrogram.types.Message` | ``bool``: On success, an edited message or a service message will be returned (when applicable),
@@ -58,6 +59,9 @@ class DeletePollOption:
                 )
 
         """
+        if isinstance(option, types.PollOption):
+            option = option.persistent_id
+
         r = await self.invoke(
             raw.functions.messages.DeletePollAnswer(
                 peer=await self.resolve_peer(chat_id),
