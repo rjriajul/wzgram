@@ -11350,7 +11350,7 @@ class Message(Object, Update):
             options=option
         )
 
-    async def pin(self, disable_notification: bool = False, both_sides: bool = False) -> Optional["types.Message"]:
+    async def pin(self, disable_notification: bool = False, both_sides: Optional[bool] = None) -> Optional["types.Message"]:
         """Shortcut for method :obj:`~pyrogram.Client.pin_chat_message` will automatically fill method attributes:
 
         * chat_id
@@ -11363,7 +11363,8 @@ class Message(Object, Update):
 
             both_sides (``bool``, *optional*):
                 Pass True to pin the message for both sides (you and recipient).
-                Applicable to private chats only. Defaults to False.
+                Applicable to private chats only. Defaults to True for bots, which can only pin for
+                both sides, and to False for users.
 
         Returns:
             :obj:`~pyrogram.types.Message`: On success, the service message is returned.

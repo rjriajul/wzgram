@@ -5556,6 +5556,8 @@ async def test_pinning_in_a_private_chat_is_documented_to_return_none():
     from pyrogram.methods.chats.pin_chat_message import PinChatMessage
 
     class _Client(PinChatMessage):
+        me = None
+
         async def resolve_peer(self, peer_id):
             return raw.types.InputPeerSelf()
 

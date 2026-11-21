@@ -1518,6 +1518,7 @@ class TestPinBusinessConnection:
             return raw.types.Updates(updates=[], users=[], chats=[], date=0, seq=0)
 
         client = AsyncMock(spec=pyrogram.Client)
+        client.me = None
         client.invoke = invoke
         client.resolve_peer = AsyncMock(return_value=raw.types.InputPeerSelf())
 

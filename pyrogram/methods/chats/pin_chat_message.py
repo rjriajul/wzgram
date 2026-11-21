@@ -28,7 +28,7 @@ class PinChatMessage:
         chat_id: Union[int, str],
         message_id: int,
         disable_notification: bool = False,
-        both_sides: bool = False,
+        both_sides: Optional[bool] = None,
         business_connection_id: Optional[str] = None,
     ) -> Optional["types.Message"]:
         """Pin a message in a group, channel or your own chat.
@@ -50,7 +50,8 @@ class PinChatMessage:
 
             both_sides (``bool``, *optional*):
                 Pass True to pin the message for both sides (you and recipient).
-                Applicable to private chats only. Defaults to False.
+                Applicable to private chats only. Defaults to True for bots, which can only pin for
+                both sides, and to False for users.
 
             business_connection_id (``str``, *optional*):
                 Unique identifier of the business connection on behalf of which the
@@ -69,6 +70,9 @@ class PinChatMessage:
                 # Pin without notification
                 await app.pin_chat_message(chat_id, message_id, disable_notification=True)
         """
+        if both_sides is None:
+            both_sides = getattr(self.me, "is_bot", False)
+
         r = await self.invoke(
             raw.functions.messages.UpdatePinnedMessage(
                 peer=await self.resolve_peer(chat_id),
