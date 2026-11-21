@@ -21,7 +21,7 @@
 # Source: tl:messages.sendScheduledMessages
 # ***************************
 
-from typing import Union, List, Optional
+from typing import Union, List, Iterable
 
 import pyrogram
 from pyrogram import raw
@@ -32,45 +32,46 @@ class SendScheduledMessages:
     async def send_scheduled_messages(
         self: "pyrogram.Client",
         chat_id: Union[int, str],
-        id: Optional[List[int]] = None,
-    ) -> "types.Message":
+        id: Union[int, Iterable[int]],
+    ) -> Union["types.Message", List["types.Message"]]:
         """Send scheduled messages immediately.
 
         .. include:: /_includes/usable-by/users-bots.rst
 
         Parameters:
-
-            id (List[int], *optional*): List of scheduled message IDs to send now
-
             chat_id (``int`` | ``str``):
                 Unique identifier (int) or username (str) of the target chat.
 
-
+            id (``int`` | Iterable of ``int``):
+                A scheduled message identifier or a list of scheduled message identifiers to send now.
 
         Returns:
-            :obj:`~pyrogram.types.Message`
+            :obj:`~pyrogram.types.Message` | List of :obj:`~pyrogram.types.Message`: In case *id* was not
+            a list, a single message is returned, otherwise a list of messages is returned.
 
         Example:
             .. code-block:: python
 
-                await app.send_scheduled_messages(chat_id, ...)
+                await app.send_scheduled_messages(chat_id, message_id)
+                await app.send_scheduled_messages(chat_id, [message_id1, message_id2])
         """
+        is_iterable = not isinstance(id, int)
+        ids = list(id) if is_iterable else [id]
 
         r = await self.invoke(
             raw.functions.messages.SendScheduledMessages(
-                
                 peer=await self.resolve_peer(chat_id),
-                id=id,
+                id=ids,
             )
         )
 
+        users = {i.id: i for i in r.users}
+        chats = {i.id: i for i in r.chats}
+        messages = types.List()
+
         for i in r.updates:
             if isinstance(i, (raw.types.UpdateNewMessage,
-                              raw.types.UpdateNewChannelMessage,
-                              raw.types.UpdateNewScheduledMessage)):
-                return await types.Message._parse(
-                    self, i.message,
-                    {i.id: i for i in r.users},
-                    {i.id: i for i in r.chats},
-                    is_scheduled=isinstance(i, raw.types.UpdateNewScheduledMessage)
-                )
+                              raw.types.UpdateNewChannelMessage)):
+                messages.append(await types.Message._parse(self, i.message, users, chats))
+
+        return messages if is_iterable else messages[0] if messages else None

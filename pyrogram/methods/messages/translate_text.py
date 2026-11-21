@@ -31,7 +31,7 @@ class TranslateText:
     async def translate_text(
         self: "pyrogram.Client",
         peer: Optional[Union[int, str]] = None,
-        id: Optional[List[int]] = None,
+        id: Optional[Union[int, List[int]]] = None,
         text: Optional[Union[str, List[raw.types.TextWithEntities]]] = None,
         to_lang: Optional[str] = None,
         tone: Optional[str] = None,
@@ -42,7 +42,7 @@ class TranslateText:
 
         Parameters:
             peer (Union[int, str], *optional*): Chat from which to translate an existing message
-            id (List[int], *optional*): Message IDs to translate
+            id (Union[int, List[int]], *optional*): Message ID or list of message IDs to translate
             text (Union[str, List[raw.types.TextWithEntities]], *optional*): Text to translate (plain string or list of TextWithEntities)
             to_lang (str): Target language code (e.g. "en", "es")
             tone (str, *optional*): AI translation tone preset
@@ -58,6 +58,9 @@ class TranslateText:
 
         if to_lang is None:
             raise ValueError("to_lang is required")
+
+        if isinstance(id, int):
+            id = [id]
 
         if isinstance(text, str):
             text = [raw.types.TextWithEntities(text=text, entities=[])]
