@@ -29,10 +29,13 @@ class PromoteChatMember:
         user_id: Union[int, str],
         privileges: Optional["types.ChatPrivileges"] = None,
     ) -> bool:
-        """Promote or demote a user in a supergroup or a channel.
+        """Promote or demote a user in a basic group, a supergroup or a channel.
 
         You must be an administrator in the chat for this to work and must have the appropriate admin rights.
         Pass False for all boolean parameters to demote a user.
+
+        Basic groups have no per-right admins: any privilege set to True promotes the user with the
+        default admin rights, and all of them False demotes the user.
 
         .. include:: /_includes/usable-by/users-bots.rst
 
@@ -62,6 +65,21 @@ class PromoteChatMember:
         # See Chat.promote_member for the reason of this (instead of setting types.ChatPrivileges() as default arg).
         if privileges is None:
             privileges = types.ChatPrivileges()
+
+        if isinstance(chat_id, raw.types.InputPeerChat):
+            await self.invoke(
+                raw.functions.messages.EditChatAdmin(
+                    chat_id=chat_id.chat_id,
+                    user_id=user_id,
+                    is_admin=any(
+                        value is True
+                        for key, value in vars(privileges).items()
+                        if key.startswith("can_")
+                    )
+                )
+            )
+
+            return True
 
         try:
             raw_chat_member = (await self.invoke(
