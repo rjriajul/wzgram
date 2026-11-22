@@ -55,6 +55,8 @@ Bots
 
 .. autoclass:: pyrogram.handlers.CallbackQueryHandler()
 .. autoclass:: pyrogram.handlers.InlineQueryHandler()
+.. autoclass:: pyrogram.handlers.WidgetQueryHandler()
+.. autoclass:: pyrogram.handlers.SharedWidgetQueryHandler()
 .. autoclass:: pyrogram.handlers.ChosenInlineResultHandler()
 .. autoclass:: pyrogram.handlers.GuestMessageHandler()
 .. autoclass:: pyrogram.handlers.ManagedBotUpdatedHandler()

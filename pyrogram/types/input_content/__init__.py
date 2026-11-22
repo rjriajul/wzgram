@@ -98,6 +98,8 @@ from .input_rich_message import InputRichMessage
 from .input_rich_message_content import InputRichMessageContent
 from .input_rich_message_media import InputRichMessageMedia
 from .input_text_message_content import InputTextMessageContent
+from .input_shared_widget_message_content import InputSharedWidgetMessageContent
+from .input_widget_message_content import InputWidgetMessageContent
 from .input_venue_message_content import InputVenueMessageContent
 
 __all__ = [
@@ -179,6 +181,8 @@ __all__ = [
     "InputRichMessageContent",
     "InputRichMessageMedia",
     "InputTextMessageContent",
+    "InputSharedWidgetMessageContent",
+    "InputWidgetMessageContent",
     "InputVenueMessageContent"
 ]
 

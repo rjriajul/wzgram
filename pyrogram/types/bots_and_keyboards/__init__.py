@@ -31,6 +31,15 @@ from .copy_text_button import CopyTextButton
 from .disabled_button import DisabledButton
 from .switch_inline_query_chosen_chat import SwitchInlineQueryChosenChat
 from .callback_query import CallbackQuery
+from .shared_widget_query import SharedWidgetQuery
+from .widget_query import WidgetQuery
+from .widget_query_type import (
+    WidgetQueryType,
+    WidgetQueryTypeData,
+    WidgetQueryTypeSentTransaction,
+    WidgetQueryTypeSignData,
+)
+from .widget_query_wallet import WidgetQueryWallet
 from .chat_boost_updated import ChatBoostUpdated
 from .force_reply import ForceReply
 from .game_high_score import GameHighScore
@@ -71,6 +80,13 @@ __all__ = [
     "DisabledButton",
     "SwitchInlineQueryChosenChat",
     "CallbackQuery",
+    "SharedWidgetQuery",
+    "WidgetQuery",
+    "WidgetQueryType",
+    "WidgetQueryTypeData",
+    "WidgetQueryTypeSentTransaction",
+    "WidgetQueryTypeSignData",
+    "WidgetQueryWallet",
     "ChatBoostUpdated",
     "ForceReply",
     "GameHighScore",

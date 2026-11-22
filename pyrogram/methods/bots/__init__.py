@@ -24,6 +24,7 @@ from .answer_inline_query import AnswerInlineQuery
 from .answer_pre_checkout_query import AnswerPreCheckoutQuery
 from .answer_shipping_query import AnswerShippingQuery
 from .answer_web_app_query import AnswerWebAppQuery
+from .answer_widget_query import AnswerWidgetQuery
 from .can_bot_send_message import CanBotSendMessage
 from .check_bot_username import CheckBotUsername
 from .create_bot import CreateBot
@@ -71,6 +72,7 @@ class Bots(
     AnswerPreCheckoutQuery,
     AnswerShippingQuery,
     AnswerWebAppQuery,
+    AnswerWidgetQuery,
     CanBotSendMessage,
     CheckBotUsername,
     CreateBot,

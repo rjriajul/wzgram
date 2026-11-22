@@ -36,6 +36,8 @@ from .edit_fact_check import EditFactCheck
 from .edit_inline_caption import EditInlineCaption
 from .edit_inline_media import EditInlineMedia
 from .edit_inline_reply_markup import EditInlineReplyMarkup
+from .edit_message_widget_data import EditMessageWidgetData
+from .edit_shared_widget_data import EditSharedWidgetData
 from .edit_inline_text import EditInlineText
 from .edit_message_caption import EditMessageCaption
 from .edit_message_checklist import EditMessageChecklist
@@ -83,6 +85,8 @@ from .send_chat_action import SendChatAction
 from .send_checklist import SendChecklist
 from .send_contact import SendContact
 from .send_dice import SendDice
+from .send_shared_widget import SendSharedWidget
+from .send_widget import SendWidget
 from .send_document import SendDocument
 from .send_location import SendLocation
 from .send_media_group import SendMediaGroup
@@ -134,6 +138,8 @@ class Messages(
     EditInlineCaption,
     EditInlineMedia,
     EditInlineReplyMarkup,
+    EditMessageWidgetData,
+    EditSharedWidgetData,
     EditInlineText,
     EditMessageCaption,
     EditMessageChecklist,
@@ -181,6 +187,8 @@ class Messages(
     SendChecklist,
     SendContact,
     SendDice,
+    SendSharedWidget,
+    SendWidget,
     SendDocument,
     SendLocation,
     SendMediaGroup,

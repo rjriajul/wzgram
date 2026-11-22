@@ -153,8 +153,10 @@ types:
     - InputRichMessage
     - InputRichMessageContent
     - InputRichMessageMedia
+    - InputSharedWidgetMessageContent
     - InputTextMessageContent
     - InputVenueMessageContent
+    - InputWidgetMessageContent
     - Invoice
     - KeyboardButton
     - KeyboardButtonPollType
@@ -259,6 +261,7 @@ types:
     - RichTextUrl
     - SentGuestMessage
     - SentWebAppMessage
+    - SharedWidgetQuery
     - ShippingAddress
     - ShippingOption
     - ShippingQuery
@@ -293,6 +296,12 @@ types:
     - WebAppData
     - WebAppInfo
     - Widget
+    - WidgetQuery
+    - WidgetQueryType
+    - WidgetQueryTypeData
+    - WidgetQueryTypeSentTransaction
+    - WidgetQueryTypeSignData
+    - WidgetQueryWallet
     - WriteAccessAllowed
   pending:
     {}
@@ -306,6 +315,7 @@ methods:
     - answerPreCheckoutQuery
     - answerShippingQuery
     - answerWebAppQuery
+    - answerWidgetQuery
     - approveChatJoinRequest
     - approveSuggestedPost
     - banChatMember
@@ -336,6 +346,8 @@ methods:
     - editMessageMedia
     - editMessageReplyMarkup
     - editMessageText
+    - editMessageWidgetData
+    - editSharedWidgetData
     - editUserStarSubscription
     - exportChatInviteLink
     - forwardMessages
@@ -383,11 +395,13 @@ methods:
     - sendPoll
     - sendRichMessage
     - sendRichMessageDraft
+    - sendSharedWidget
     - sendSticker
     - sendVenue
     - sendVideo
     - sendVideoNote
     - sendVoice
+    - sendWidget
     - setChatAdministratorCustomTitle
     - setChatDescription
     - setChatMenuButton

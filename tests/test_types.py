@@ -2128,3 +2128,82 @@ async def test_a_reply_can_quote_rich_texts():
 
     assert reply_to.quote_rich == [raw.types.TextPlain(text="a"), bold]
 
+
+def _user_wallet():
+    return raw.types.UserWallet(address="UQw", balance=5, public_key=b"\x01\x02", state_init=b"si")
+
+
+@pytest.mark.parametrize(
+    ("query_type", "kind"),
+    [
+        (raw.types.WidgetQueryTypeData(), types.WidgetQueryTypeData),
+        (raw.types.WidgetQueryTypeSignData(wallet=_user_wallet(), sign_data=raw.types.DataJSON(data='{"a":1}')), types.WidgetQueryTypeSignData),
+        (raw.types.WidgetQueryTypeSentTransaction(wallet=_user_wallet(), msg_hash="h"), types.WidgetQueryTypeSentTransaction),
+    ],
+)
+async def test_a_widget_query_from_a_message(query_type, kind):
+    users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Bot")}
+    update = raw.types.UpdateBotWidgetQuery(
+        query_id=10, query_type=query_type, user_id=1, peer=raw.types.PeerUser(user_id=1), msg_id=4,
+        chat_instance=-3, chat_type="private", data=b"hi", widget_id=8,
+    )
+
+    query = await types.WidgetQuery._parse(MagicMock(), update, users, {})
+
+    assert (query.id, query.from_user.id, query.chat.id, query.message_id, query.inline_message_id) == ("10", 1, 1, 4, None)
+    assert (query.chat_instance, query.chat_type, query.data, query.widget_id) == ("-3", enums.ChatType.PRIVATE, "hi", "8")
+    assert type(query.type) is kind
+    if kind is not types.WidgetQueryTypeData:
+        assert (query.type.wallet.address, query.type.wallet.amount, query.type.wallet.public_key, query.type.wallet.state_init) == ("UQw", "5", "0102", "c2k=")
+
+
+async def test_a_widget_query_from_an_inline_message_has_no_chat():
+    update = raw.types.UpdateInlineBotWidgetQuery(
+        query_id=10, query_type=raw.types.WidgetQueryTypeData(), user_id=1,
+        inline_message_id=raw.types.InputBotInlineMessageID(dc_id=2, id=3, access_hash=4),
+        chat_instance=1, chat_type="sender", data=b"\xff",
+    )
+
+    query = await types.WidgetQuery._parse(MagicMock(), update, {1: _raw_user(1, "Sender")}, {})
+
+    assert (query.chat, query.message_id, query.chat_type, query.data, query.widget_id) == (None, None, enums.ChatType.BOT, b"\xff", None)
+    assert query.inline_message_id
+
+
+async def test_a_shared_widget_query_and_its_handler():
+    from pyrogram.dispatcher import Dispatcher
+    from pyrogram.handlers import SharedWidgetQueryHandler
+
+    update = raw.types.UpdateBotWidgetCopyQuery(query_id=10, query_type=raw.types.WidgetQueryTypeData(), user_id=1, data=b"d", widget_id=8)
+    client = MagicMock()
+    client.answer_widget_query = AsyncMock(return_value=True)
+
+    query = await types.SharedWidgetQuery._parse(client, update, {1: _raw_user(1, "Sender")}, {})
+
+    assert (query.id, query.data, query.widget_id) == ("10", "d", "8")
+    assert await query.answer("ok") is True
+    client.answer_widget_query.assert_awaited_once_with("10", "ok")
+
+    parsers = Dispatcher(client).update_parsers
+    assert (await parsers[raw.types.UpdateBotWidgetCopyQuery](update, {1: _raw_user(1, "Sender")}, {}))[1] is SharedWidgetQueryHandler
+    assert raw.types.UpdateBotWidgetQuery in parsers and raw.types.UpdateInlineBotWidgetQuery in parsers
+
+
+async def test_inline_widget_contents_write_widget_messages(no_text_types):
+    client = MagicMock()
+
+    widget = await types.InputWidgetMessageContent("<i>w</i>", height=60, is_shared=True, caption="c").write(client, None)
+    shared = await types.InputSharedWidgetMessageContent("77", chat_data="d").write(client, None)
+
+    assert isinstance(widget, raw.types.InputBotInlineMessageWidget)
+    assert (widget.html, widget.width, widget.height, widget.shared_widget, widget.message) == ("<i>w</i>", 0, 60, True, "c")
+    assert isinstance(shared, raw.types.InputBotInlineMessageWidgetId)
+    assert (shared.widget_id, shared.chat_data, shared.message) == (77, "d", "")
+
+
+@pytest.fixture
+def no_text_types(monkeypatch):
+    async def parse_text_entities(client, text, parse_mode, entities):
+        return {"message": text or "", "entities": None}
+
+    monkeypatch.setattr(pyrogram.utils, "parse_text_entities", parse_text_entities)

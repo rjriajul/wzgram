@@ -550,6 +550,9 @@ mtproto:
       bot_query_id: web_app_query_id
     answer_guest_query:
       query_id: guest_query_id
+    answer_widget_query:
+      query_id: widget_query_id
+      result: data
     answer_chat_join_request_query:
       query_id: chat_join_request_query_id
     send_invoice:

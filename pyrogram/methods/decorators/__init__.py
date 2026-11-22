@@ -19,6 +19,8 @@
 from .on_business_connection import OnBusinessConnection
 from .on_business_message import OnBusinessMessage
 from .on_callback_query import OnCallbackQuery
+from .on_shared_widget_query import OnSharedWidgetQuery
+from .on_widget_query import OnWidgetQuery
 from .on_chat_boost import OnChatBoost
 from .on_chat_join_request import OnChatJoinRequest
 from .on_chat_member_updated import OnChatMemberUpdated
@@ -53,6 +55,8 @@ class Decorators(
     OnBusinessConnection,
     OnBusinessMessage,
     OnCallbackQuery,
+    OnSharedWidgetQuery,
+    OnWidgetQuery,
     OnChatBoost,
     OnChatJoinRequest,
     OnChatMemberUpdated,
