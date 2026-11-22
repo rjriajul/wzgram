@@ -1,3 +1,4 @@
+import gzip
 from datetime import datetime, timezone
 from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -2068,3 +2069,62 @@ def test_a_bot_shows_its_topic_sidebar(sidebar):
     user = raw.types.User(id=1, first_name="b", bot=True, bot_forum_sidebar=sidebar, usernames=[], restriction_reason=[])
 
     assert types.User._parse(MagicMock(), user).has_topic_sidebar is sidebar
+
+
+def _widget_media(payload, **kwargs):
+    return raw.types.MessageMediaWidget(width=0, height=120, payload=payload, **kwargs)
+
+
+async def test_a_widget_message_unpacks_its_html():
+    users = {1: _raw_user(1, "Sender"), 2: _raw_user(2, "Receiver")}
+    message = raw.core.TLObject.read(BytesIO(raw.types.Message(
+        id=5, from_id=raw.types.PeerUser(user_id=1), peer_id=raw.types.PeerUser(user_id=2), date=0,
+        message="cap", media=_widget_media(gzip.compress("<b>hi</b>".encode()), widget_id=9, chat_data="c", can_query=True),
+    ).write()))
+
+    parsed = await types.Message._parse(MagicMock(), message, users, {}, replies=0)
+
+    assert parsed.media == enums.MessageMediaType.WIDGET
+    assert (parsed.caption, parsed.text) == ("cap", None)
+    widget = parsed.widget
+    assert (widget.html, widget.id, widget.width, widget.height, widget.chat_data) == ("<b>hi</b>", "9", None, 120, "c")
+    assert widget.can_query is True
+
+
+def test_a_widget_with_a_broken_payload_is_dropped():
+    assert types.Widget._parse(_widget_media(b"not gzip")) is None
+
+
+async def test_a_ton_wallet_card_keeps_its_stickers():
+    nft = raw.types.wallet.NftItem(
+        address="EQnft", owner_address="UQme", index="7", name="Cat",
+        attributes=[raw.types.wallet.NftAttribute(trait_type="eyes", value="blue")],
+    )
+    card = raw.types.wallet.Card(
+        address="UQme", balance=1500000000, bg_nft_item=nft,
+        stickers=[raw.types.wallet.CardSticker(
+            coordinates=raw.types.MediaAreaCoordinates(x=10.0, y=20.0, w=30.0, h=40.0, rotation=90.0),
+            nft=nft,
+        )],
+    )
+
+    parsed = await types.TonWalletCard._parse(MagicMock(), card)
+
+    assert (parsed.address, parsed.amount, parsed.background_nft_address) == ("UQme", "1500000000", "EQnft")
+    sticker = parsed.stickers[0]
+    assert (sticker.position.x_percentage, sticker.position.rotation_angle, sticker.position.corner_radius_percentage) == (10.0, 90.0, 0.0)
+    assert (sticker.nft.name, sticker.nft.description, sticker.nft.attributes[0].value) == ("Cat", "", "blue")
+    assert await types.TonWalletCard._parse(MagicMock(), None) is None
+
+
+async def test_a_reply_can_quote_rich_texts():
+    client = MagicMock()
+    client.resolve_peer = AsyncMock()
+    bold = raw.types.TextBold(text=raw.types.TextPlain(text="b"))
+
+    reply_to = await pyrogram.utils.get_reply_to(
+        client, types.ReplyParameters(message_id=3, quote_rich_texts=["a", bold])
+    )
+
+    assert reply_to.quote_rich == [raw.types.TextPlain(text="a"), bold]
+

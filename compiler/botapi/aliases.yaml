@@ -67,6 +67,9 @@ botapi:
       paid_star_count: send_paid_messages_stars
       unique_gift: gift
       video_chat_participants_invited: video_chat_members_invited
+      paid_messages_waived: no_paid_messages_token_used
+    TextQuote:
+      rich_texts: rich_text
     ForumTopicCreated:
       name: title
       icon_custom_emoji_id: custom_emoji_id
@@ -412,6 +415,8 @@ botapi:
   enum_value_rename:
     ChatType:
       sender: BOT
+    MessageEntityType:
+      bank_card_number: BANK_CARD
 
   enum_value_unsupported:
     MessageEntityType:

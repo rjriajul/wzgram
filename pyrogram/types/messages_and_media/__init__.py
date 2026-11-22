@@ -225,6 +225,7 @@ from .video_note import VideoNote
 from .voice import Voice
 from .web_app_data import WebAppData
 from .web_page import WebPage
+from .widget import Widget
 from .write_access_allowed import WriteAccessAllowed
 
 __all__ = [
@@ -438,6 +439,7 @@ __all__ = [
     "Voice",
     "WebAppData",
     "WebPage",
+    "Widget",
     "WriteAccessAllowed",
 ]
 

@@ -307,6 +307,9 @@ class Message(Object, Update):
         game (:obj:`~pyrogram.types.Game`, *optional*):
             Message is a game, information about the game.
 
+        widget (:obj:`~pyrogram.types.Widget`, *optional*):
+            Message is an HTML widget, information about the widget.
+
         giveaway (:obj:`~pyrogram.types.Giveaway`, *optional*):
             Message is a giveaway, information about the giveaway.
 
@@ -777,6 +780,7 @@ class Message(Object, Update):
         sticker: Optional["types.Sticker"] = None,
         animation: Optional["types.Animation"] = None,
         game: Optional["types.Game"] = None,
+        widget: Optional["types.Widget"] = None,
         giveaway: Optional["types.Giveaway"] = None,
         giveaway_winners: Optional["types.GiveawayWinners"] = None,
         giveaway_completed: Optional["types.GiveawayCompleted"] = None,
@@ -961,6 +965,7 @@ class Message(Object, Update):
         self.sticker = sticker
         self.animation = animation
         self.game = game
+        self.widget = widget
         self.giveaway = giveaway
         self.giveaway_winners = giveaway_winners
         self.giveaway_completed = giveaway_completed
@@ -1903,6 +1908,7 @@ class Message(Object, Update):
         dice = None
         paid_media = None
         checklist = None
+        widget = None
 
         media = message.media
         media_type = None
@@ -1942,6 +1948,9 @@ class Message(Object, Update):
             elif isinstance(media, raw.types.MessageMediaGame):
                 game = types.Game._parse(client, media)
                 media_type = enums.MessageMediaType.GAME
+            elif isinstance(media, raw.types.MessageMediaWidget):
+                widget = types.Widget._parse(media)
+                media_type = enums.MessageMediaType.WIDGET if widget else enums.MessageMediaType.UNSUPPORTED
             elif isinstance(media, raw.types.MessageMediaGiveaway):
                 giveaway = types.Giveaway._parse(client, media, chats)
                 media_type = enums.MessageMediaType.GIVEAWAY
@@ -2054,6 +2063,7 @@ class Message(Object, Update):
             "dice": dice,
             "paid_media": paid_media,
             "checklist": checklist,
+            "widget": widget,
         }
 
     @staticmethod

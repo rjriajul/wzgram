@@ -786,6 +786,11 @@ def pyrogram_api():
             StoriesStealthMode
             TonWalletOwnershipProof
             TonWalletOwnershipProofChallenge
+            AreaPosition
+            TonNft
+            TonNftAttribute
+            TonWalletCard
+            TonWalletCardSticker
             TonWalletState
             UserRating
             UserTonWalletAddress
@@ -936,6 +941,7 @@ def pyrogram_api():
             UpgradedGiftOriginalDetails
             UpgradedGiftPurchaseOffer
             UpgradedGiftValueInfo
+            Widget
             WriteAccessAllowed
             AuctionBid
             AuctionRound

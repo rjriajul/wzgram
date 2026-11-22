@@ -529,6 +529,10 @@ async def get_reply_to(
                 monoforum_peer_id=await client.resolve_peer(direct_messages_topic_id) if direct_messages_topic_id else None,
                 todo_item_id=reply_parameters.checklist_task_id,
                 poll_option=reply_parameters.poll_option_id.encode() if reply_parameters.poll_option_id is not None else None,
+                quote_rich=[
+                    raw.types.TextPlain(text=t) if isinstance(t, str) else t
+                    for t in reply_parameters.quote_rich_texts
+                ] if reply_parameters.quote_rich_texts else None,
             )
 
     if message_thread_id:

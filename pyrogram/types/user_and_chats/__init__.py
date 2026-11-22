@@ -57,6 +57,7 @@ from .folder_invite_link import FolderInviteLink
 from .found_contacts import FoundContacts
 from .global_privacy_settings import GlobalPrivacySettings
 from .group_call_member import GroupCallMember
+from .area_position import AreaPosition
 from .history_cleared import HistoryCleared
 from .invite_link_importer import InviteLinkImporter
 from .phone_call_ended import PhoneCallEnded
@@ -66,6 +67,10 @@ from .restriction import Restriction
 from .stories_stealth_mode import StoriesStealthMode
 from .ton_wallet_ownership_proof import TonWalletOwnershipProof
 from .ton_wallet_ownership_proof_challenge import TonWalletOwnershipProofChallenge
+from .ton_nft import TonNft
+from .ton_nft_attribute import TonNftAttribute
+from .ton_wallet_card import TonWalletCard
+from .ton_wallet_card_sticker import TonWalletCardSticker
 from .ton_wallet_state import TonWalletState
 from .user import Link, User
 from .user_rating import UserRating
@@ -127,6 +132,7 @@ __all__ = [
     "FoundContacts",
     "GlobalPrivacySettings",
     "GroupCallMember",
+    "AreaPosition",
     "HistoryCleared",
     "InviteLinkImporter",
     "PhoneCallEnded",
@@ -136,6 +142,10 @@ __all__ = [
     "StoriesStealthMode",
     "TonWalletOwnershipProof",
     "TonWalletOwnershipProofChallenge",
+    "TonNft",
+    "TonNftAttribute",
+    "TonWalletCard",
+    "TonWalletCardSticker",
     "TonWalletState",
     "Link",
     "User",

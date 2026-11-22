@@ -95,6 +95,9 @@ class ExternalReplyInfo(Object):
         game (:obj:`~pyrogram.types.Game`, *optional*):
             Message is a game, information about the game.
 
+        widget (:obj:`~pyrogram.types.Widget`, *optional*):
+            Message is an HTML widget, information about the widget.
+
         giveaway (:obj:`~pyrogram.types.Giveaway`, *optional*):
             Message is a scheduled giveaway, information about the giveaway.
 
@@ -140,6 +143,7 @@ class ExternalReplyInfo(Object):
         contact: Optional["types.Contact"] = None,
         dice: Optional["types.Dice"] = None,
         game: Optional["types.Game"] = None,
+        widget: Optional["types.Widget"] = None,
         giveaway: Optional["types.Giveaway"] = None,
         giveaway_winners: Optional["types.GiveawayWinners"] = None,
         invoice: Optional["types.Invoice"] = None,
@@ -170,6 +174,7 @@ class ExternalReplyInfo(Object):
         self.contact = contact
         self.dice = dice
         self.game = game
+        self.widget = widget
         self.giveaway = giveaway
         self.giveaway_winners = giveaway_winners
         self.invoice = invoice
@@ -212,6 +217,7 @@ class ExternalReplyInfo(Object):
         location = None
         poll = None
         venue = None
+        widget = None
 
         media = reply.reply_media
         media_type = None
@@ -250,6 +256,9 @@ class ExternalReplyInfo(Object):
             elif isinstance(media, raw.types.MessageMediaGame):
                 game = types.Game._parse(client, media)
                 media_type = enums.MessageMediaType.GAME
+            elif isinstance(media, raw.types.MessageMediaWidget):
+                widget = types.Widget._parse(media)
+                media_type = enums.MessageMediaType.WIDGET if widget else enums.MessageMediaType.UNSUPPORTED
             elif isinstance(media, raw.types.MessageMediaGiveaway):
                 giveaway = types.Giveaway._parse(client, media, chats)
                 media_type = enums.MessageMediaType.GIVEAWAY
@@ -348,6 +357,7 @@ class ExternalReplyInfo(Object):
             contact=contact,
             dice=dice,
             game=game,
+            widget=widget,
             giveaway=giveaway,
             giveaway_winners=giveaway_winners,
             invoice=invoice,

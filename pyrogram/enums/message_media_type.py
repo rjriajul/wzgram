@@ -90,6 +90,9 @@ class MessageMediaType(AutoName):
     CHECKLIST = auto()
     "Checklist media"
 
+    WIDGET = auto()
+    "HTML widget media"
+
     UNSUPPORTED = auto()
     "Unsupported media"
 

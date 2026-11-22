@@ -16,6 +16,7 @@ types:
   supported:
     - AcceptedGiftTypes
     - Animation
+    - AreaPosition
     - Audio
     - Birthdate
     - BotAccessSettings
@@ -38,6 +39,7 @@ types:
     - ChatBackground
     - ChatBoost
     - ChatBoostUpdated
+    - ChatFullInfo
     - ChatInviteLink
     - ChatJoinRequest
     - ChatLocation
@@ -65,6 +67,7 @@ types:
     - DisabledButton
     - Document
     - EphemeralMessageParameters
+    - ExternalReplyInfo
     - ForceReply
     - ForumTopic
     - ForumTopicClosed
@@ -171,6 +174,8 @@ types:
     - MenuButtonCommands
     - MenuButtonDefault
     - MenuButtonWebApp
+    - Message
+    - MessageEntity
     - MessageGenerationStopped
     - MessageOrigin
     - MessageOriginChannel
@@ -194,6 +199,7 @@ types:
     - RefundedPayment
     - ReplyKeyboardMarkup
     - ReplyKeyboardRemove
+    - ReplyParameters
     - RichBlock
     - RichBlockAnchor
     - RichBlockAnimation
@@ -269,6 +275,11 @@ types:
     - SuggestedPostPrice
     - SuggestedPostRefunded
     - SwitchInlineQueryChosenChat
+    - TextQuote
+    - TonNft
+    - TonNftAttribute
+    - TonWalletCard
+    - TonWalletCardSticker
     - User
     - UserRating
     - UsersShared
@@ -281,20 +292,10 @@ types:
     - Voice
     - WebAppData
     - WebAppInfo
+    - Widget
     - WriteAccessAllowed
   pending:
-    ChatFullInfo:
-      botapi: [ton_wallet_card]
-    ExternalReplyInfo:
-      botapi: [widget]
-    Message:
-      botapi: [paid_messages_waived, widget]
-    MessageEntity:
-      enums: [MessageEntityType.bank_card_number]
-    ReplyParameters:
-      botapi: [quote_rich_texts]
-    TextQuote:
-      botapi: [rich_texts]
+    {}
 
 methods:
   supported:

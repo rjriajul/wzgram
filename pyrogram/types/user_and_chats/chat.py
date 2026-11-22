@@ -541,6 +541,10 @@ class Chat(Object):
             Note added to the user's contact.
             Returned only in :meth:`~pyrogram.Client.get_chat`.
 
+        ton_wallet_card (:obj:`~pyrogram.types.TonWalletCard`, *optional*):
+            For private chats, the TON wallet card of the user, which is shown on their profile page.
+            Returned only in :meth:`~pyrogram.Client.get_chat`.
+
         share_theme (:obj:`~pyrogram.types.ShareTheme`, *optional*):
             Theme of the page shown when the user or channel is shared.
             Returned only in :meth:`~pyrogram.Client.get_chat`.
@@ -702,6 +706,7 @@ class Chat(Object):
         uses_unofficial_app: Optional[bool] = None,
         accepted_gift_types: Optional["types.AcceptedGiftTypes"] = None,
         note: Optional["types.FormattedText"] = None,
+        ton_wallet_card: Optional["types.TonWalletCard"] = None,
         share_theme: Optional["types.ShareTheme"] = None,
         guard_bot: Optional["types.User"] = None,
         raw: Optional[Union["raw.types.UserFull", "raw.types.ChatFull", "raw.types.ChannelFull"]] = None
@@ -850,6 +855,7 @@ class Chat(Object):
         self.uses_unofficial_app = uses_unofficial_app
         self.accepted_gift_types = accepted_gift_types
         self.note = note
+        self.ton_wallet_card = ton_wallet_card
         self.share_theme = share_theme
         self.guard_bot = guard_bot
         self.raw = raw
@@ -1218,6 +1224,7 @@ class Chat(Object):
         parsed_chat.accepted_gift_types = types.AcceptedGiftTypes._parse(user.disallowed_gifts)
         parsed_chat.note = types.FormattedText._parse(client, user.note)
         parsed_chat.share_theme = await types.ShareTheme._parse(client, user.share_theme, users, chats)
+        parsed_chat.ton_wallet_card = await types.TonWalletCard._parse(client, user.wallet_card, users, chats)
 
         return parsed_chat
 

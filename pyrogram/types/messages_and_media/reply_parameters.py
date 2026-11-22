@@ -18,7 +18,7 @@
 
 from typing import List, Optional, Union
 
-from pyrogram import enums, types
+from pyrogram import enums, raw, types
 
 from ..object import Object
 
@@ -61,6 +61,10 @@ class ReplyParameters(Object):
         poll_option_id (``str``, *optional*):
             Persistent identifier of the specific poll option to be replied to.
 
+        quote_rich_texts (List of ``str`` | :obj:`~pyrogram.raw.base.RichText`, *optional*):
+            Quoted parts of the rich message to be replied to.
+            Must contain one element for each quoted text of the message in the order of their appearance.
+
         ephemeral_message_id (``int``, *optional*):
             Unique identifier of the ephemeral message to be replied to.
             If specified, *chat_id* or *message_id* must not be specified.
@@ -79,6 +83,7 @@ class ReplyParameters(Object):
         checklist_task_id: Optional[int] = None,
         poll_option_id: Optional[str] = None,
         ephemeral_message_id: Optional[int] = None,
+        quote_rich_texts: Optional[List[Union[str, "raw.base.RichText"]]] = None,
     ):
         super().__init__()
 
@@ -92,4 +97,5 @@ class ReplyParameters(Object):
         self.checklist_task_id = checklist_task_id
         self.poll_option_id = poll_option_id
         self.ephemeral_message_id = ephemeral_message_id
+        self.quote_rich_texts = quote_rich_texts
 
