@@ -43,6 +43,7 @@ from .get_inline_bot_results import GetInlineBotResults
 from .get_managed_bot_access_settings import GetManagedBotAccessSettings
 from .get_managed_bot_token import GetManagedBotToken
 from .get_owned_bots import GetOwnedBots
+from .invite_users_to_bot import InviteUsersToBot
 from .refund_star_payment import RefundStarPayment
 from .replace_managed_bot_token import ReplaceManagedBotToken
 from .request_callback_answer import RequestCallbackAnswer
@@ -58,6 +59,7 @@ from .set_bot_name import SetBotName
 from .set_chat_menu_button import SetChatMenuButton
 from .set_game_score import SetGameScore
 from .set_managed_bot_access_settings import SetManagedBotAccessSettings
+from .set_my_settings import SetMySettings
 
 
 class Bots(
@@ -88,6 +90,7 @@ class Bots(
     GetManagedBotAccessSettings,
     GetManagedBotToken,
     GetOwnedBots,
+    InviteUsersToBot,
     RefundStarPayment,
     ReplaceManagedBotToken,
     RequestCallbackAnswer,
@@ -102,6 +105,7 @@ class Bots(
     SetBotName,
     SetChatMenuButton,
     SetGameScore,
-    SetManagedBotAccessSettings
+    SetManagedBotAccessSettings,
+    SetMySettings
 ):
     pass

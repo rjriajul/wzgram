@@ -217,6 +217,7 @@ def pyrogram_api():
             get_managed_bot_access_settings
             get_managed_bot_token
             get_owned_bots
+            invite_users_to_bot
             refund_star_payment
             replace_managed_bot_token
             request_callback_answer
@@ -232,6 +233,7 @@ def pyrogram_api():
             set_chat_menu_button
             set_game_score
             set_managed_bot_access_settings
+            set_my_settings
         """,
         business="""
         Business

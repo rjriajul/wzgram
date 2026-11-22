@@ -17,12 +17,12 @@
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
 from typing import Optional
-from pyrogram import raw
+from pyrogram import raw, types
 from ..object import Object
 
 
 class WriteAccessAllowed(Object):
-    """This object represents a service message about a user allowing a bot to write messages after adding it to the attachment menu, launching a Web App from a link, or accepting an explicit request from a Web App sent by the method `requestWriteAccess <https://core.telegram.org/bots/webapps#initializing-mini-apps>`__.
+    """This object represents a service message about a user allowing a bot to write messages after adding it to the attachment menu, launching a Web App from a link, or accepting an explicit request from a Web App sent by the method `requestWriteAccess <https://core.telegram.org/bots/webapps#initializing-mini-apps>`__, or about a user being invited to the private chat with the bot by the owner of the bot.
 
     Parameters:
         from_request (``bool``, *optional*):
@@ -34,6 +34,10 @@ class WriteAccessAllowed(Object):
         from_attachment_menu (``bool``, *optional*):
             True, if the access was granted when the bot was added to the attachment or side menu
 
+        inviter (:obj:`~pyrogram.types.User`, *optional*):
+            The owner of the bot, if the access was granted when the owner invited the user to the private chat with the bot.
+            Bot owners can invite up to 10 users at once by opening the link ``https://t.me/botinvite/<bot_username>``.
+
     """
 
     def __init__(
@@ -42,12 +46,14 @@ class WriteAccessAllowed(Object):
         from_request: Optional[bool] = None,
         web_app_name: Optional[str] = None,
         from_attachment_menu: Optional[bool] = None,
+        inviter: Optional["types.User"] = None,
     ):
         super().__init__()
 
         self.from_request = from_request
         self.web_app_name = web_app_name
         self.from_attachment_menu = from_attachment_menu
+        self.inviter = inviter
 
     @staticmethod
     def _parse(action: "raw.types.MessageActionBotAllowed"):

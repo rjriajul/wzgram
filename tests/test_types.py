@@ -2052,3 +2052,19 @@ async def test_an_emoji_backdrop_share_theme_is_parsed():
 @pytest.mark.parametrize("theme", [None, raw.types.ShareThemeDefault()])
 async def test_no_share_theme_or_the_default_one_is_none(theme):
     assert await types.ShareTheme._parse(MagicMock(), theme, {}, {}) is None
+
+
+async def test_a_bot_invite_is_write_access_with_the_inviter():
+    users = {1: _raw_user(1, "Owner"), 2: _raw_user(2, "Bot")}
+
+    parsed = await types.Message._parse(MagicMock(), _service(raw.types.MessageActionBotInvite(inviter_id=1)), users, {})
+
+    assert parsed.service == enums.MessageServiceType.WRITE_ACCESS_ALLOWED
+    assert parsed.write_access_allowed.inviter.id == 1
+
+
+@pytest.mark.parametrize("sidebar", [None, True])
+def test_a_bot_shows_its_topic_sidebar(sidebar):
+    user = raw.types.User(id=1, first_name="b", bot=True, bot_forum_sidebar=sidebar, usernames=[], restriction_reason=[])
+
+    assert types.User._parse(MagicMock(), user).has_topic_sidebar is sidebar

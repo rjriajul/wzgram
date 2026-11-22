@@ -476,27 +476,39 @@ class InputRichBlockExpandableBlockQuotation(InputRichBlock):
     custom attribute ``expandable``.
 
     Parameters:
-        text (``str`` | :obj:`~pyrogram.raw.base.RichText`):
-            Content of the block.
+        blocks (List of :obj:`~pyrogram.types.InputRichBlock`):
+            Blocks inside the block quotation.
 
         credit (``str`` | :obj:`~pyrogram.raw.base.RichText`, *optional*):
             Credit or citation source of the block quotation,
             corresponding to the HTML tag ``<cite>``.
+
+        text (``str`` | :obj:`~pyrogram.raw.base.RichText`, *optional*):
+            Deprecated, pass ``blocks`` instead. Text content of the block, used when ``blocks`` is not passed.
     """
 
     def __init__(
         self,
-        text: Union[str, "raw.base.RichText"],
+        blocks: Optional[List[InputRichBlock]] = None,
         credit: Optional[Union[str, "raw.base.RichText"]] = None,
+        text: Optional[Union[str, "raw.base.RichText"]] = None,
     ):
         super().__init__()
 
-        self.text = text
+        self.blocks = blocks
         self.credit = credit
+        self.text = text
 
     def write(self) -> "raw.base.PageBlock":
-        return raw.types.PageBlockBlockquote(
-            text=_to_rich_text(self.text),
+        if self.blocks is None or isinstance(self.blocks, (str, raw.core.TLObject)):
+            return raw.types.PageBlockBlockquote(
+                text=_to_rich_text(self.text if self.blocks is None else self.blocks),
+                caption=_to_rich_text(self.credit or ""),
+                collapsed=True,
+            )
+
+        return raw.types.PageBlockBlockquoteBlocks(
+            blocks=[b.write() for b in self.blocks],
             caption=_to_rich_text(self.credit or ""),
             collapsed=True,
         )

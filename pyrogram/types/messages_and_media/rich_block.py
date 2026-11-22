@@ -197,7 +197,8 @@ class RichBlock(Object):
 
             return RichBlockList(items=items)
         if isinstance(rich_block, raw.types.PageBlockBlockquoteBlocks):
-            return RichBlockBlockQuotation(
+            quotation = RichBlockExpandableBlockQuotation if rich_block.collapsed else RichBlockBlockQuotation
+            return quotation(
                 blocks=types.List(
                     [
                         await types.RichBlock._parse(
@@ -209,13 +210,8 @@ class RichBlock(Object):
                 credit=await types.RichText._parse(client, rich_block.caption, users, chats),
             )
         if isinstance(rich_block, raw.types.PageBlockBlockquote):
-            if rich_block.collapsed:
-                return RichBlockExpandableBlockQuotation(
-                    text=await types.RichText._parse(client, rich_block.text, users, chats),
-                    credit=await types.RichText._parse(client, rich_block.caption, users, chats),
-                )
-
-            return RichBlockBlockQuotation(
+            quotation = RichBlockExpandableBlockQuotation if rich_block.collapsed else RichBlockBlockQuotation
+            return quotation(
                 blocks=types.List(
                     [RichBlockParagraph(text=await types.RichText._parse(client, rich_block.text, users, chats))]
                 ),
@@ -773,17 +769,17 @@ class RichBlockExpandableBlockQuotation(RichBlock):
     custom attribute ``expandable``.
 
     Parameters:
-        text (:obj:`~pyrogram.types.RichText`):
+        blocks (List of :obj:`~pyrogram.types.RichBlock`):
             Content of the block.
 
         credit (:obj:`~pyrogram.types.RichText`, *optional*):
             Credit of the block.
     """
 
-    def __init__(self, text: "types.RichText", credit: Optional["types.RichText"] = None):
+    def __init__(self, blocks: List["types.RichBlock"], credit: Optional["types.RichText"] = None):
         super().__init__()
 
-        self.text = text
+        self.blocks = blocks
         self.credit = credit
 
 

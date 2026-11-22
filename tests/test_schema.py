@@ -1212,10 +1212,26 @@ class TestInstantViewBlocks:
         )
 
     def test_an_expandable_quotation_is_a_collapsed_blockquote(self):
-        block = types.InputRichBlockExpandableBlockQuotation(text="hi").write()
+        block = types.InputRichBlockExpandableBlockQuotation(
+            blocks=[types.InputRichBlockParagraph(text="hi")]
+        ).write()
 
-        assert isinstance(block, raw.types.PageBlockBlockquote)
+        assert isinstance(block, raw.types.PageBlockBlockquoteBlocks)
         assert block.collapsed is True
+        assert isinstance(block.blocks[0], raw.types.PageBlockParagraph)
+
+    @pytest.mark.parametrize(
+        "block",
+        [
+            lambda: types.InputRichBlockExpandableBlockQuotation(text="hi"),
+            lambda: types.InputRichBlockExpandableBlockQuotation("hi"),
+        ],
+    )
+    def test_an_expandable_quotation_still_takes_text(self, block):
+        written = block().write()
+
+        assert isinstance(written, raw.types.PageBlockBlockquote)
+        assert written.collapsed is True
 
     def test_a_plain_quotation_is_not_collapsed(self):
         block = types.InputRichBlockBlockQuotation(blocks=[]).write()
@@ -1244,7 +1260,7 @@ class TestInstantViewBlocks:
         )
 
         assert isinstance(block, types.RichBlockExpandableBlockQuotation)
-        assert block.text == "quote"
+        assert block.blocks[0].text == "quote"
 
         plain = await types.RichBlock._parse(
             Mock(),
@@ -1255,6 +1271,23 @@ class TestInstantViewBlocks:
         )
 
         assert isinstance(plain, types.RichBlockBlockQuotation)
+
+    @pytest.mark.parametrize(
+        ("collapsed", "kind"),
+        [(True, types.RichBlockExpandableBlockQuotation), (None, types.RichBlockBlockQuotation)],
+    )
+    async def test_quoted_blocks_parse_by_their_collapsed_flag(self, collapsed, kind):
+        block = await types.RichBlock._parse(
+            Mock(),
+            raw.types.PageBlockBlockquoteBlocks(
+                blocks=[raw.types.PageBlockParagraph(text=raw.types.TextPlain(text="quote"))],
+                caption=raw.types.TextPlain(text="who"),
+                collapsed=collapsed,
+            ),
+        )
+
+        assert type(block) is kind
+        assert block.blocks[0].text == "quote"
 
     async def test_a_button_row_parses_with_its_alignment(self):
         block = await types.RichBlock._parse(

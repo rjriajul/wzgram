@@ -9,8 +9,8 @@
 # Absent Bot API types and methods are deliberate and are not listed here.
 # Regenerate the pending section with: uv run poe botapi-refresh
 
-version: 'Bot API 10.3'
-release_date: 'August 24, 2026'
+version: 'Bot API 10.5'
+release_date: 'November 22, 2026'
 
 types:
   supported:
@@ -38,7 +38,6 @@ types:
     - ChatBackground
     - ChatBoost
     - ChatBoostUpdated
-    - ChatFullInfo
     - ChatInviteLink
     - ChatJoinRequest
     - ChatLocation
@@ -66,7 +65,6 @@ types:
     - DisabledButton
     - Document
     - EphemeralMessageParameters
-    - ExternalReplyInfo
     - ForceReply
     - ForumTopic
     - ForumTopicClosed
@@ -173,8 +171,6 @@ types:
     - MenuButtonCommands
     - MenuButtonDefault
     - MenuButtonWebApp
-    - Message
-    - MessageEntity
     - MessageGenerationStopped
     - MessageOrigin
     - MessageOriginChannel
@@ -198,7 +194,6 @@ types:
     - RefundedPayment
     - ReplyKeyboardMarkup
     - ReplyKeyboardRemove
-    - ReplyParameters
     - RichBlock
     - RichBlockAnchor
     - RichBlockAnimation
@@ -274,7 +269,6 @@ types:
     - SuggestedPostPrice
     - SuggestedPostRefunded
     - SwitchInlineQueryChosenChat
-    - TextQuote
     - User
     - UserRating
     - UsersShared
@@ -289,7 +283,18 @@ types:
     - WebAppInfo
     - WriteAccessAllowed
   pending:
-    {}
+    ChatFullInfo:
+      botapi: [ton_wallet_card]
+    ExternalReplyInfo:
+      botapi: [widget]
+    Message:
+      botapi: [paid_messages_waived, widget]
+    MessageEntity:
+      enums: [MessageEntityType.bank_card_number]
+    ReplyParameters:
+      botapi: [quote_rich_texts]
+    TextQuote:
+      botapi: [rich_texts]
 
 methods:
   supported:
@@ -416,5 +421,7 @@ methods:
       mtproto: [about, bot, lang_code, name]
     setMyName:
       mtproto: [about, bot, description, lang_code]
+    setMySettings:
+      mtproto: [bot, bot_to_bot_communication_mode, business, callback_mode, chat_history, forum_can_manage_topics, forum_sidebar, forum_view, guard, guestchat, inline_feedback, inline_geo, inline_mode, inline_placeholder, nochats]
     setMyShortDescription:
       mtproto: [about, bot, description, lang_code, name]

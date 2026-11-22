@@ -1997,3 +1997,41 @@ async def test_the_no_paid_messages_exception_is_toggled(kwargs, parent):
     assert sent.user_id.user_id == 5
     assert (sent.require_payment, sent.refund_charged) == (kwargs.get("require_payment", False), kwargs.get("refund_charged", False))
     assert type(sent.parent_peer) is (parent or type(None))
+
+
+async def test_set_my_settings_maps_to_bot_settings():
+    client = FakeClient([raw.types.UserEmpty(id=1)])
+
+    assert await pyrogram.Client.set_my_settings(
+        client,
+        can_join_groups=False,
+        has_topic_sidebar=True,
+        callback_query_mode="default",
+        inline_feedback_share_denominator=10,
+    ) is True
+
+    sent = client.sent[0]
+    assert isinstance(sent, raw.functions.bots.SetBotSettings)
+    assert (sent.nochats, sent.forum_sidebar, sent.callback_mode, sent.inline_feedback) == (True, True, "", 10)
+    assert (sent.bot, sent.chat_history, sent.forum_view) == (None, None, None)
+
+
+@pytest.mark.parametrize("kwargs", [{"callback_query_mode": "always"}, {"inline_feedback_share_denominator": 5}])
+async def test_set_my_settings_refuses_bad_values(kwargs):
+    client = FakeClient()
+
+    with pytest.raises(ValueError):
+        await pyrogram.Client.set_my_settings(client, **kwargs)
+
+    assert client.sent == []
+
+
+async def test_invite_users_to_bot_takes_one_id_or_a_list():
+    client = FakeClient([True, True])
+
+    assert await pyrogram.Client.invite_users_to_bot(client, 9, 5) is True
+    await pyrogram.Client.invite_users_to_bot(client, 9, [5, 6])
+
+    assert [u.user_id for u in client.sent[0].users] == [5]
+    assert [u.user_id for u in client.sent[1].users] == [5, 6]
+    assert client.sent[0].bot.user_id == 9
